@@ -3,7 +3,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useLang } from '@/components/LanguageProvider';
 import { tenant } from '@/lib/tenant';
-import { tierOf, type Role, ROLE_LABELS, ROLES } from '@/lib/types';
+import { tierOf, type Role, ROLE_LABELS } from '@/lib/types';
+
+const ROLES = Object.keys(ROLE_LABELS) as Role[];
 
 type Profile = { id: string; full_name: string; email: string; role: Role; phone: string | null };
 type Scope = { id: string; user_id: string; area_id: string | null; location_type: 'school' | 'arena' | null; location_id: string | null };
@@ -53,9 +55,10 @@ export default function StaffClient({ viewerRole }: { viewerRole: Role }) {
     if (!pick) return;
     setErr('');
     const [kind, id] = pick.split(':');
-    const row = kind === 'area'
-      ? { user_id: userId, area_id: id, location_type: null, location_id: null }
-      : { user_id: userId, area_id: null, location_type: kind, location_id: id };
+    const row: { user_id: string; area_id: string | null; location_type: string | null; location_id: string | null } =
+      kind === 'area'
+        ? { user_id: userId, area_id: id, location_type: null, location_id: null }
+        : { user_id: userId, area_id: null, location_type: kind, location_id: id };
     const { error } = await supabase.from('staff_scope').insert(row);
     if (error) setErr(error.message);
     setPick(''); load();

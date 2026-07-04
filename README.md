@@ -33,6 +33,8 @@ Kräver att **Del 1 redan är uppe** (schema.sql kört, appen deployad).
 | `components/Shell.tsx` | Ny nav (Översikt / Drift / Områdesdrift / Ledning) + live bemannings-% i ops-spine. |
 | `app/login/page.tsx` | Ny strålkastarscen-login. |
 | `components/dashboard/DashboardClient.tsx` | 6 KPI:er för chefer, "mina pass" för fältpersonal. |
+| `lib/supabase/server.ts` | Byggfix: explicit typade cookie-callbacks (TS strict). |
+| `middleware.ts` | Samma byggfix. |
 
 ## Testa
 

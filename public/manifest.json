@@ -1,0 +1,9 @@
+{
+  "name": "TournamentOps",
+  "short_name": "TournamentOps",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#101418",
+  "theme_color": "#101418",
+  "icons": []
+}

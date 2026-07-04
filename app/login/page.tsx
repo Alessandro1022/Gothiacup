@@ -38,11 +38,12 @@ export default function LoginPage() {
   return (
     <div className="login-wrap">
       <div className="login-card">
-        <div className="brand" style={{ padding: 0, marginBottom: 16 }}>
+        <div className="login-eyebrow"><span className="pulse" />TOURNAMENTOPS · {tenant.event.city.toUpperCase()}</div>
+        <div className="brand" style={{ padding: 0, marginBottom: 18 }}>
           <div className="brand-badge">{tenant.event.logoText}</div>
           <div>
-            <div className="brand-name">{tenant.event.name}</div>
-            <div className="brand-sub" style={{ color: '#6b7280' }}>TournamentOps</div>
+            <div className="brand-name" style={{ fontSize: 19 }}>{tenant.event.name}</div>
+            <div className="brand-sub">{tenant.event.sport} · fältdrift</div>
           </div>
         </div>
 
@@ -52,7 +53,7 @@ export default function LoginPage() {
         <label className="label">{tr('password')}</label>
         <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
 
-        <div style={{ display: 'grid', gap: 10, marginTop: 18 }}>
+        <div style={{ display: 'grid', gap: 10, marginTop: 20 }}>
           <button className="btn btn-primary" disabled={busy || !email} onClick={signIn}>{tr('signIn')}</button>
           <button className="btn" disabled={busy || !email} onClick={magic}>{tr('magicLink')}</button>
         </div>

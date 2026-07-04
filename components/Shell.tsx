@@ -2,7 +2,10 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Menu, LayoutDashboard, AlertTriangle, CheckSquare, LogOut } from 'lucide-react';
+import {
+  Menu, LayoutDashboard, AlertTriangle, CheckSquare, LogOut,
+  Map, School, Landmark, CalendarClock, Users
+} from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { tenant } from '@/lib/tenant';
 import { useLang } from '@/components/LanguageProvider';
@@ -17,6 +20,7 @@ export default function Shell({ role, name, children }: Props) {
   const [open, setOpen] = useState(false);
   const [clock, setClock] = useState('--:--:--');
   const [openInc, setOpenInc] = useState<number | null>(null);
+  const [staffPct, setStaffPct] = useState<number | null>(null);
   const supabase = createClient();
   const tier = tierOf(role);
 
@@ -28,19 +32,23 @@ export default function Shell({ role, name, children }: Props) {
     return () => clearInterval(id);
   }, []);
 
-  // Ops-spine: öppna incidenter live
+  // Telemetri: öppna incidenter + bemanning just nu, live
   useEffect(() => {
     const load = async () => {
-      const { count } = await supabase
-        .from('incidents')
-        .select('id', { count: 'exact', head: true })
-        .neq('status', 'resolved');
-      setOpenInc(count ?? 0);
+      const nowIso = new Date().toISOString();
+      const [inc, act, chk] = await Promise.all([
+        supabase.from('incidents').select('id', { count: 'exact', head: true }).neq('status', 'resolved'),
+        supabase.from('shifts').select('id', { count: 'exact', head: true }).lte('starts_at', nowIso).gte('ends_at', nowIso),
+        supabase.from('shifts').select('id', { count: 'exact', head: true }).lte('starts_at', nowIso).gte('ends_at', nowIso).eq('status', 'checked_in')
+      ]);
+      setOpenInc(inc.count ?? 0);
+      setStaffPct(act.count ? Math.round(((chk.count ?? 0) / act.count) * 100) : null);
     };
     load();
     const ch = supabase
-      .channel('spine-incidents')
+      .channel('spine-rt')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'incidents' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'shifts' }, load)
       .subscribe();
     return () => { supabase.removeChannel(ch); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -55,8 +63,21 @@ export default function Shell({ role, name, children }: Props) {
       label: tr('gOps'),
       items: [
         { href: '/incidents', label: tr('incidents'), Icon: AlertTriangle, minTier: 1 },
-        { href: '/tasks', label: tr('tasks'), Icon: CheckSquare, minTier: 1 }
+        { href: '/tasks', label: tr('tasks'), Icon: CheckSquare, minTier: 1 },
+        { href: '/shifts', label: tr('shifts'), Icon: CalendarClock, minTier: 1 }
       ]
+    },
+    {
+      label: tr('gArea'),
+      items: [
+        { href: '/areas', label: tenant.labels.areas, Icon: Map, minTier: 3 },
+        { href: '/schools', label: tenant.labels.schools, Icon: School, minTier: 2 },
+        { href: '/arenas', label: tenant.labels.playingAreas, Icon: Landmark, minTier: 2 }
+      ]
+    },
+    {
+      label: tr('gMgmt'),
+      items: [{ href: '/staff', label: tr('staff'), Icon: Users, minTier: 4 }]
     }
   ];
 
@@ -69,7 +90,9 @@ export default function Shell({ role, name, children }: Props) {
           <Menu size={22} />
         </button>
         <div className="brand-name">{tenant.event.name}</div>
-        <div className="mono" style={{ marginLeft: 'auto', fontSize: 13 }}>{clock}</div>
+        <div className="mono" style={{ marginLeft: 'auto', fontSize: 13 }}>
+          <span className="pulse" />{clock}
+        </div>
       </div>
 
       <div className={`overlay ${open ? 'show' : ''}`} onClick={closeDrawer} />
@@ -79,7 +102,7 @@ export default function Shell({ role, name, children }: Props) {
           <div className="brand-badge">{tenant.event.logoText}</div>
           <div>
             <div className="brand-name">{tenant.event.name}</div>
-            <div className="brand-sub">TournamentOps · {tenant.event.sport}</div>
+            <div className="brand-sub">TOURNAMENTOPS · {tenant.event.sport.toUpperCase()}</div>
           </div>
         </div>
 
@@ -89,7 +112,7 @@ export default function Shell({ role, name, children }: Props) {
             <div className="spine-lbl">{tr('incidents')}</div>
           </div>
           <div className="spine-item">
-            <div className="spine-num">–</div>
+            <div className="spine-num">{staffPct === null ? '–' : `${staffPct}%`}</div>
             <div className="spine-lbl">{tr('staffing')}</div>
           </div>
           <div className="spine-item">

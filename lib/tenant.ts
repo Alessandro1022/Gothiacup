@@ -1,5 +1,6 @@
 // White-label: ALLT märkes-/sportspecifikt läses härifrån.
 // Byt event genom att ändra NEXT_PUBLIC_TENANT (GOTHIA | PARTILLE).
+// Del 2: "stadium at night"-tema — mörk kommandocentral med holografisk glöd.
 
 export type Sport = 'fotboll' | 'handboll';
 export type TenantKey = 'GOTHIA' | 'PARTILLE';
@@ -8,8 +9,17 @@ export type TenantConfig = {
   key: TenantKey;
   event: { name: string; shortName: string; sport: Sport; city: string; logoText: string };
   theme: {
-    paper: string; ink: string; sidebar: string; sidebarInk: string;
-    primary: string; primaryDark: string; accent: string; danger: string; ok: string;
+    bg: string;          // djup arena-natt
+    panel: string;       // glaspanel
+    line: string;        // glödande kantlinje
+    ink: string;         // primär text
+    muted: string;       // sekundär text
+    primary: string;     // glödfärg (turf/arena)
+    primaryDark: string;
+    glow: string;        // rgba-glöd för skuggor
+    accent: string;      // amber-varning
+    danger: string;
+    ok: string;
   };
   labels: {
     playingArea: string; playingAreas: string; // "Plan/Planer" vs "Hall/Hallar"
@@ -22,8 +32,17 @@ export const GOTHIA: TenantConfig = {
   key: 'GOTHIA',
   event: { name: 'Gothia Cup', shortName: 'Gothia', sport: 'fotboll', city: 'Göteborg', logoText: 'GC' },
   theme: {
-    paper: '#F7F8F6', ink: '#14171A', sidebar: '#101418', sidebarInk: '#E6E9EC',
-    primary: '#15924F', primaryDark: '#0F7A40', accent: '#E8A317', danger: '#DC2626', ok: '#15924F'
+    bg: '#050907',       // djup arena-natt, grön ton
+    panel: 'rgba(14, 22, 18, 0.72)',
+    line: 'rgba(34, 197, 94, 0.16)',
+    ink: '#E9EFEA',
+    muted: '#7E9488',
+    primary: '#22C55E',
+    primaryDark: '#16A34A',
+    glow: 'rgba(34, 197, 94, 0.35)',
+    accent: '#FBBF24',
+    danger: '#F87171',
+    ok: '#22C55E'
   },
   labels: {
     playingArea: 'Plan', playingAreas: 'Planer', matchStart: 'Avspark',
@@ -35,8 +54,17 @@ export const PARTILLE: TenantConfig = {
   key: 'PARTILLE',
   event: { name: 'Partille Cup', shortName: 'Partille', sport: 'handboll', city: 'Partille', logoText: 'PC' },
   theme: {
-    paper: '#F6F7F8', ink: '#14171A', sidebar: '#0F1420', sidebarInk: '#E6E9EC',
-    primary: '#1E5AA8', primaryDark: '#164780', accent: '#E8A317', danger: '#DC2626', ok: '#1E5AA8'
+    bg: '#04070E',
+    panel: 'rgba(12, 18, 30, 0.72)',
+    line: 'rgba(76, 141, 255, 0.16)',
+    ink: '#E8EDF5',
+    muted: '#7E8CA6',
+    primary: '#4C8DFF',
+    primaryDark: '#2F6FE0',
+    glow: 'rgba(76, 141, 255, 0.35)',
+    accent: '#FBBF24',
+    danger: '#F87171',
+    ok: '#4C8DFF'
   },
   labels: {
     playingArea: 'Hall', playingAreas: 'Hallar', matchStart: 'Nedkast',

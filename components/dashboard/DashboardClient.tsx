@@ -53,8 +53,20 @@ export default function DashboardClient({ role, userId }: { role: Role; userId: 
 
   if (loading) return <div className="page-sub">{tr('loading')}</div>;
 
-  const sevKey = (s: string) => (s === 'low' ? 'sevLow' : s === 'medium' ? 'sevMedium' : s === 'high' ? 'sevHigh' : 'sevCritical') as const;
-
+const sevKey = (
+  s: string
+): 'sevLow' | 'sevMedium' | 'sevHigh' | 'sevCritical' => {
+  switch (s) {
+    case 'low':
+      return 'sevLow';
+    case 'medium':
+      return 'sevMedium';
+    case 'high':
+      return 'sevHigh';
+    default:
+      return 'sevCritical';
+  }
+};
   return (
     <>
       <h1 className="page-title">{tr('dashboard')}</h1>

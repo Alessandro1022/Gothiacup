@@ -1,5 +1,6 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { Plus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useLang } from '@/components/LanguageProvider';
@@ -109,7 +110,7 @@ export default function IncidentsClient({ userId }: { userId: string }) {
           <div key={i.id} className="list-item">
             <div className="li-head">
               <div>
-                <div className="li-title">{i.title}</div>
+                <Link href={`/incidents/${i.id}`} className="li-title" style={{ display: 'block', textDecoration: 'underline', textDecorationColor: 'var(--line)', textUnderlineOffset: 3 }}>{i.title}</Link>
                 {i.description && <div className="li-meta">{i.description}</div>}
                 <div className="li-meta mono">
                   {new Date(i.created_at).toLocaleString('sv-SE')}

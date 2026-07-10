@@ -1,49 +1,54 @@
-# TournamentOps — Del 2 (Områdesdrift)
+# TournamentOps — Del 3 (Enterprise)
 
-Kräver att **Del 1 redan är uppe** (schema.sql kört, appen deployad).
+Kräver att **Del 1 och Del 2 är uppe**.
 
 ## Körordning
 
-1. Kör `supabase/schema_part2.sql` i Supabase SQL Editor (på samma projekt som Del 1).
-2. Ladda upp alla filer/mappar nedan till roten av GitHub-repot (behåll strukturen exakt).
-   GitHub skriver automatiskt över filer med samma sökväg — det är meningen.
-3. Vercel bygger om automatiskt. Inga nya env-variabler behövs.
+1. Kör `supabase/schema_part3.sql` i Supabase SQL Editor.
+2. Ladda upp alla filer/mappar till roten av repot (samma sökvägar skrivs över — det är meningen).
+   **Viktigt:** `package.json` ersätts (ny dependency: `qrcode.react`). Vercel installerar automatiskt.
+3. Vercel bygger om. Inga nya env-variabler.
 
-## NYA filer
+## Ny design — Gothia Cup-stil
 
-| Fil | Vad |
+Hela appen är omgjord för att matcha gothiacup.se: ljust, vitt, rundade kort, deras blå som
+primärfärg och gul accent. Mörkblå sidomeny/topbar. Partille-tenanten får samma struktur i grönt.
+Snabbare också: alla tunga effekter (blur, 3D, scanning) är borttagna, och sidbyten visar
+direkt ett laddningsskelett (`app/(app)/loading.tsx`) istället för att kännas frusna.
+Mobil: ny bottennav (Översikt · Incidenter · Pass · Chatt · Mer) med stora touch-ytor.
+
+## NYA funktioner
+
+| Sida | Vad |
 |---|---|
-| `supabase/schema_part2.sql` | Lag/incheckning, klassrum, nycklar, felanmälan, nattrond, matcher, säkerhetslogg, publikräkning, pass, material, checklistor. RLS via scope. |
-| `app/(app)/areas/page.tsx` + `components/areas/AreasClient.tsx` | Områdesöversikt med aggregerad status per område (realtime). |
-| `app/(app)/schools/page.tsx` + `components/schools/SchoolsClient.tsx` | Skollista med beläggning. |
-| `app/(app)/schools/[id]/page.tsx` + `components/schools/SchoolDetailClient.tsx` | Skoldetalj: Lag / Klassrum / Felanmälan / Nattrond / Nycklar. |
-| `app/(app)/arenas/page.tsx` + `components/arenas/ArenasClient.tsx` | Arenalista med LIVE-status. |
-| `app/(app)/arenas/[id]/page.tsx` + `components/arenas/ArenaDetailClient.tsx` | Arenadetalj: Matcher / Säkerhetslogg / Publik / Checklistor. |
-| `app/(app)/shifts/page.tsx` + `components/shifts/ShiftsClient.tsx` | Pass: egen in-/utcheckning, chefer (tier ≥ 3) skapar pass. |
-| `app/(app)/staff/page.tsx` + `components/staff/StaffClient.tsx` | Personalkatalog, roller + scope (helt område eller enskild plats). Sidan kräver tier ≥ 4, redigering admin+. |
+| **Rapporter** (tier ≥ 3) | BI: incidenter per dag/allvarlighet, öppna vs lösta, passtäckning live, beläggning per skola. |
+| **Nyheter** | Nyhetsflöde från ledningen (tier ≥ 4 publicerar), fäst inlägg, synlighetsnivå per inlägg. |
+| **Chatt** | Realtidschatt: Allmänt (alla), Ledning (tier ≥ 4), en kanal per område (scope styr). |
+| **Dokument** | Länkbibliotek per kategori med synlighetsnivå. Tier ≥ 4 hanterar. |
+| **Krisläge** (tier ≥ 5) | Aktivera med meddelande → röd banner visas direkt för all personal på alla sidor (realtime). |
+| **Inställningar** (tier ≥ 5) | Runtime white-label: byt eventnamn + primärfärg live för alla, utan omdeploy. |
+| **Incidentdetalj** | Klicka på valfri incident → full detalj: redigera allt, tilldela, kommentarstråd i realtid, radera. |
+| **Pass-byten** | Personal begär byte på sina pass; chefer godkänner/nekar. Godkänt byte öppnar passet för omtillsättning. |
+| **QR-/kodincheckning** | Varje pass har en kod. Chefer visar QR (skannas med mobilkameran) eller så anger personalen koden på Pass-sidan. |
+| **PWA-grund** | Service worker cachar statiska filer och senast besökta sidor som offline-fallback. |
 
-## ERSÄTTER (skriv över befintliga)
+## Redigera/radera överallt
 
-| Fil | Varför |
-|---|---|
-| `lib/tenant.ts` | Nya designtokens ("stadium at night"-tema). Gothia = grön glöd, Partille = blå. |
-| `lib/i18n.ts` | Alla Del 1-nycklar + ~60 nya för Del 2. |
-| `app/layout.tsx` | Nya CSS-variabler + holografiskt planlager i bakgrunden. |
-| `app/globals.css` | Hela nya temat. Samma klassnamn — incidenter/uppgifter får nya utseendet gratis. |
-| `components/Shell.tsx` | Ny nav (Översikt / Drift / Områdesdrift / Ledning) + live bemannings-% i ops-spine. |
-| `app/login/page.tsx` | Ny strålkastarscen-login. |
-| `components/dashboard/DashboardClient.tsx` | 6 KPI:er för chefer, "mina pass" för fältpersonal. |
-| `lib/supabase/server.ts` | Byggfix: explicit typade cookie-callbacks (TS strict). |
-| `middleware.ts` | Samma byggfix. |
+Lag (redigera alla fält + radera), matcher (redigera + radera), klassrum, felanmälningar,
+nycklar, uppgifter (klicka på titeln i kanban → redigera; papperskorg raderar), incidenter
+(via detaljsidan), pass, nyheter, dokument.
+
+## ERSÄTTER (skriv över)
+
+`package.json`, `lib/tenant.ts`, `lib/i18n.ts`, `app/layout.tsx`, `app/globals.css`,
+`components/Shell.tsx`, `components/tasks/TasksClient.tsx`, `components/incidents/IncidentsClient.tsx`,
+`components/shifts/ShiftsClient.tsx`, `components/schools/SchoolDetailClient.tsx`,
+`components/arenas/ArenaDetailClient.tsx`
 
 ## Testa
 
-1. Dashboard: nya mörka temat + KPI "Incheckade lag".
-2. Skolor → Hvitfeldtska: lägg till lag, checka in, tilldela klassrum (seedade salar finns).
-3. Samma skola: lämna ut nyckel (ange innehavare), skapa felanmälan, logga nattrond.
-4. Arenor → Heden: två seedade matcher, sätt en till "Pågår" → LIVE-badge på arenalistan.
-5. Heden → Checklistor: starta "Öppning spelyta", bocka av — run klarmarkeras automatiskt.
-6. Pass: skapa pass på dig själv, checka in → bemannings-% i sidomenyn uppdateras live.
-7. Personal: byt roll på en testanvändare (endast admin+), tilldela scope för ett område.
-
-Skriv **kör vidare** när Del 2 sitter, så levererar jag Del 3 (BI, krisläge, godkännanden, passbyte, nyhetsflöde, chatt, dokument, QR-incheckning, PWA offline).
+1. Ny look direkt efter deploy — ljus Gothia-stil, bottennav på mobilen.
+2. Incidenter → klicka en titel → redigera, kommentera från två webbläsare (realtid).
+3. Pass → skapa pass på dig själv → "Visa QR" → skanna med mobilen → incheckad.
+4. Krisläge → aktivera → röd banner överallt, direkt.
+5. Inställningar → byt primärfärg → hela appen byter färg live.

@@ -31,6 +31,9 @@ export default function SchoolDetailClient({ school, userId }: { school: School;
   const [iTitle, setITitle] = useState(''); const [iDesc, setIDesc] = useState('');
   const [nOk, setNOk] = useState(true); const [nNotes, setNNotes] = useState('');
   const [kLabel, setKLabel] = useState('');
+  const [editT, setEditT] = useState<Team | null>(null);
+  const [eName, setEName] = useState(''); const [eCountry, setECountry] = useState('');
+  const [eSize, setESize] = useState(''); const [eContact, setEContact] = useState(''); const [ePhone, setEPhone] = useState('');
 
   const load = useCallback(async () => {
     const [t, r, i, n, k] = await Promise.all([
@@ -116,6 +119,36 @@ export default function SchoolDetailClient({ school, userId }: { school: School;
     load();
   };
 
+  const openEditTeam = (t: Team) => {
+    setEditT(t);
+    setEName(t.team_name); setECountry(t.country ?? '');
+    setESize(String(t.group_size)); setEContact(t.contact_name ?? ''); setEPhone(t.contact_phone ?? '');
+  };
+  const saveTeam = async () => {
+    if (!editT) return;
+    await supabase.from('team_assignments').update({
+      team_name: eName, country: eCountry || null, group_size: parseInt(eSize) || 0,
+      contact_name: eContact || null, contact_phone: ePhone || null
+    }).eq('id', editT.id);
+    setEditT(null); load();
+  };
+  const removeTeam = async (t: Team) => {
+    if (!confirm(tr('confirmDelete'))) return;
+    await supabase.from('team_assignments').delete().eq('id', t.id); load();
+  };
+  const removeRoom = async (id: string) => {
+    if (!confirm(tr('confirmDelete'))) return;
+    await supabase.from('classrooms').delete().eq('id', id); load();
+  };
+  const removeIssue = async (id: string) => {
+    if (!confirm(tr('confirmDelete'))) return;
+    await supabase.from('room_issues').delete().eq('id', id); load();
+  };
+  const removeKey = async (id: string) => {
+    if (!confirm(tr('confirmDelete'))) return;
+    await supabase.from('room_keys').delete().eq('id', id); load();
+  };
+
   const roomName = (id: string | null) => rooms.find((r) => r.id === id)?.name ?? null;
   const tmLabel = (s: string) => s === 'expected' ? tr('tmExpected') : s === 'checked_in' ? tr('tmCheckedIn') : tr('tmCheckedOut');
 
@@ -163,7 +196,22 @@ export default function SchoolDetailClient({ school, userId }: { school: School;
                     <option value="">{tr('classrooms')}: {tr('none').toLowerCase()}</option>
                     {rooms.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
                   </select>
+                  <button className="btn btn-sm" onClick={() => openEditTeam(t)}>{tr('edit')}</button>
+                  <button className="btn btn-sm btn-danger" onClick={() => removeTeam(t)}>{tr('deleteLbl')}</button>
                 </div>
+                {editT?.id === t.id && (
+                  <div className="inline-form cols" style={{ marginTop: 10, marginBottom: 0 }}>
+                    <div><label className="label">{tr('teams')}</label><input className="input" value={eName} onChange={(e) => setEName(e.target.value)} /></div>
+                    <div><label className="label">{tr('country')}</label><input className="input" value={eCountry} onChange={(e) => setECountry(e.target.value)} /></div>
+                    <div><label className="label">{tr('groupSize')}</label><input className="input" type="number" value={eSize} onChange={(e) => setESize(e.target.value)} /></div>
+                    <div><label className="label">{tr('contactName')}</label><input className="input" value={eContact} onChange={(e) => setEContact(e.target.value)} /></div>
+                    <div><label className="label">{tr('phone')}</label><input className="input" value={ePhone} onChange={(e) => setEPhone(e.target.value)} /></div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button className="btn btn-sm" onClick={() => setEditT(null)}>{tr('cancel')}</button>
+                      <button className="btn btn-sm btn-primary" onClick={saveTeam}>{tr('save')}</button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
             {teams.length === 0 && <div className="page-sub">{tr('nothingHere')}</div>}
@@ -188,7 +236,10 @@ export default function SchoolDetailClient({ school, userId }: { school: School;
                       <div className="li-title">{r.name}</div>
                       <div className="li-meta">{occupants.map((o) => o.team_name).join(', ') || '—'}</div>
                     </div>
-                    <span className="mono" style={{ fontSize: 13 }}>{occupants.reduce((s, o) => s + o.group_size, 0)}/{r.capacity}</span>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <span className="mono" style={{ fontSize: 13 }}>{occupants.reduce((s, o) => s + o.group_size, 0)}/{r.capacity}</span>
+                      <button className="btn btn-sm btn-danger" onClick={() => removeRoom(r.id)}>{tr('deleteLbl')}</button>
+                    </div>
                   </div>
                 </div>
               );
@@ -220,6 +271,7 @@ export default function SchoolDetailClient({ school, userId }: { school: School;
                   {i.status === 'open' && <button className="btn btn-sm" onClick={() => setIssueStatus(i.id, 'in_progress')}>{tr('markInProgress')}</button>}
                   {i.status !== 'resolved' && <button className="btn btn-sm" onClick={() => setIssueStatus(i.id, 'resolved')}>{tr('markResolved')}</button>}
                   {i.status === 'resolved' && <button className="btn btn-sm" onClick={() => setIssueStatus(i.id, 'open')}>{tr('reopen')}</button>}
+                  <button className="btn btn-sm btn-danger" onClick={() => removeIssue(i.id)}>{tr('deleteLbl')}</button>
                 </div>
               </div>
             ))}
@@ -273,6 +325,7 @@ export default function SchoolDetailClient({ school, userId }: { school: School;
                 <div className="li-actions">
                   {k.status !== 'lost' && <button className="btn btn-sm" onClick={() => cycleKey(k)}>{k.status === 'in' ? tr('checkOut') : tr('checkIn')}</button>}
                   <button className="btn btn-sm btn-ghost" onClick={() => loseKey(k)}>{k.status === 'lost' ? tr('reopen') : tr('keyLost')}</button>
+                  <button className="btn btn-sm btn-danger" onClick={() => removeKey(k.id)}>{tr('deleteLbl')}</button>
                 </div>
               </div>
             ))}

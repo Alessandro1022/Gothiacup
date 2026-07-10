@@ -1,6 +1,6 @@
 // White-label: ALLT märkes-/sportspecifikt läses härifrån.
 // Byt event genom att ändra NEXT_PUBLIC_TENANT (GOTHIA | PARTILLE).
-// Del 2: "stadium at night"-tema — mörk kommandocentral med holografisk glöd.
+// Eventnamn + primärfärg kan överstyras i runtime via event_settings (Inställningar).
 
 export type Sport = 'fotboll' | 'handboll';
 export type TenantKey = 'GOTHIA' | 'PARTILLE';
@@ -9,21 +9,23 @@ export type TenantConfig = {
   key: TenantKey;
   event: { name: string; shortName: string; sport: Sport; city: string; logoText: string };
   theme: {
-    bg: string;          // djup arena-natt
-    panel: string;       // glaspanel
-    line: string;        // glödande kantlinje
-    ink: string;         // primär text
-    muted: string;       // sekundär text
-    primary: string;     // glödfärg (turf/arena)
+    bg: string;           // ljus appbakgrund
+    panel: string;        // vita kort
+    panel2: string;       // sidomeny/topbar (mörk brandfärg)
+    line: string;         // kantlinjer
+    ink: string;          // primär text
+    muted: string;        // sekundär text
+    sidebarInk: string;   // text i sidomenyn
+    sidebarMuted: string;
+    primary: string;      // knappar/aktiva element
     primaryDark: string;
-    glow: string;        // rgba-glöd för skuggor
-    accent: string;      // amber-varning
+    accent: string;       // gul/brand-accent
     danger: string;
     ok: string;
   };
   labels: {
-    playingArea: string; playingAreas: string; // "Plan/Planer" vs "Hall/Hallar"
-    matchStart: string;                        // "Avspark" vs "Nedkast"
+    playingArea: string; playingAreas: string;
+    matchStart: string;
     match: string; school: string; schools: string; area: string; areas: string;
   };
 };
@@ -32,17 +34,11 @@ export const GOTHIA: TenantConfig = {
   key: 'GOTHIA',
   event: { name: 'Gothia Cup', shortName: 'Gothia', sport: 'fotboll', city: 'Göteborg', logoText: 'GC' },
   theme: {
-    bg: '#050907',       // djup arena-natt, grön ton
-    panel: 'rgba(14, 22, 18, 0.72)',
-    line: 'rgba(34, 197, 94, 0.16)',
-    ink: '#E9EFEA',
-    muted: '#7E9488',
-    primary: '#22C55E',
-    primaryDark: '#16A34A',
-    glow: 'rgba(34, 197, 94, 0.35)',
-    accent: '#FBBF24',
-    danger: '#F87171',
-    ok: '#22C55E'
+    bg: '#F2F5F9', panel: '#FFFFFF', panel2: '#25618F', line: '#E2E8F1',
+    ink: '#16283C', muted: '#5D7186',
+    sidebarInk: '#FFFFFF', sidebarMuted: 'rgba(255,255,255,0.72)',
+    primary: '#1D6FA8', primaryDark: '#155A8C',
+    accent: '#FFC845', danger: '#D64545', ok: '#1E9E5A'
   },
   labels: {
     playingArea: 'Plan', playingAreas: 'Planer', matchStart: 'Avspark',
@@ -54,17 +50,11 @@ export const PARTILLE: TenantConfig = {
   key: 'PARTILLE',
   event: { name: 'Partille Cup', shortName: 'Partille', sport: 'handboll', city: 'Partille', logoText: 'PC' },
   theme: {
-    bg: '#04070E',
-    panel: 'rgba(12, 18, 30, 0.72)',
-    line: 'rgba(76, 141, 255, 0.16)',
-    ink: '#E8EDF5',
-    muted: '#7E8CA6',
-    primary: '#4C8DFF',
-    primaryDark: '#2F6FE0',
-    glow: 'rgba(76, 141, 255, 0.35)',
-    accent: '#FBBF24',
-    danger: '#F87171',
-    ok: '#4C8DFF'
+    bg: '#F3F7F4', panel: '#FFFFFF', panel2: '#1E6B45', line: '#E1EAE3',
+    ink: '#152A20', muted: '#5B7264',
+    sidebarInk: '#FFFFFF', sidebarMuted: 'rgba(255,255,255,0.72)',
+    primary: '#1E9E5A', primaryDark: '#177C46',
+    accent: '#FFD24C', danger: '#D64545', ok: '#1E9E5A'
   },
   labels: {
     playingArea: 'Hall', playingAreas: 'Hallar', matchStart: 'Nedkast',

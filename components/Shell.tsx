@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Menu, LayoutDashboard, AlertTriangle, CheckSquare, LogOut,
-  Map, School, Landmark, CalendarClock, Users
+  Map, School, Landmark, CalendarClock, Users, BarChart3,
+  Newspaper, MessageSquare, FileText, Siren, Settings2
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { tenant } from '@/lib/tenant';
@@ -18,23 +19,25 @@ export default function Shell({ role, name, children }: Props) {
   const { lang, setLang, tr } = useLang();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const [clock, setClock] = useState('--:--:--');
+  const [clock, setClock] = useState('--:--');
   const [openInc, setOpenInc] = useState<number | null>(null);
   const [staffPct, setStaffPct] = useState<number | null>(null);
+  const [crisis, setCrisis] = useState<{ active: boolean; message: string | null }>({ active: false, message: null });
+  const [evName, setEvName] = useState<string | null>(null);
   const supabase = createClient();
   const tier = tierOf(role);
 
-  // Klocka
+  // Klocka (minutupplösning räcker – billigare än sekundtick)
   useEffect(() => {
-    const tick = () => setClock(new Date().toLocaleTimeString('sv-SE'));
+    const tick = () => setClock(new Date().toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' }));
     tick();
-    const id = setInterval(tick, 1000);
+    const id = setInterval(tick, 15000);
     return () => clearInterval(id);
   }, []);
 
-  // Telemetri: öppna incidenter + bemanning just nu, live
+  // Telemetri + krisläge + runtime-inställningar, live
   useEffect(() => {
-    const load = async () => {
+    const loadCounts = async () => {
       const nowIso = new Date().toISOString();
       const [inc, act, chk] = await Promise.all([
         supabase.from('incidents').select('id', { count: 'exact', head: true }).neq('status', 'resolved'),
@@ -44,20 +47,44 @@ export default function Shell({ role, name, children }: Props) {
       setOpenInc(inc.count ?? 0);
       setStaffPct(act.count ? Math.round(((chk.count ?? 0) / act.count) * 100) : null);
     };
-    load();
+    const loadCrisis = async () => {
+      const { data } = await supabase.from('crisis_state').select('active,message').eq('id', 1).single();
+      if (data) setCrisis(data);
+    };
+    const loadSettings = async () => {
+      const { data } = await supabase.from('event_settings').select('event_name,primary_color').eq('id', 1).single();
+      if (!data) return;
+      setEvName(data.event_name || null);
+      const root = document.documentElement;
+      if (data.primary_color && /^#[0-9a-fA-F]{6}$/.test(data.primary_color)) {
+        root.style.setProperty('--primary', data.primary_color);
+        root.style.setProperty('--primary-dark', data.primary_color);
+      } else {
+        root.style.removeProperty('--primary');
+        root.style.removeProperty('--primary-dark');
+      }
+    };
+    loadCounts(); loadCrisis(); loadSettings();
     const ch = supabase
-      .channel('spine-rt')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'incidents' }, load)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'shifts' }, load)
+      .channel('shell-rt')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'incidents' }, loadCounts)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'shifts' }, loadCounts)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'crisis_state' }, loadCrisis)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'event_settings' }, loadSettings)
       .subscribe();
     return () => { supabase.removeChannel(ch); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const brandName = evName || tenant.event.name;
+
   const nav = [
     {
       label: tr('gOverview'),
-      items: [{ href: '/dashboard', label: tr('dashboard'), Icon: LayoutDashboard, minTier: 1 }]
+      items: [
+        { href: '/dashboard', label: tr('dashboard'), Icon: LayoutDashboard, minTier: 1 },
+        { href: '/reports', label: tr('reports'), Icon: BarChart3, minTier: 3 }
+      ]
     },
     {
       label: tr('gOps'),
@@ -76,20 +103,44 @@ export default function Shell({ role, name, children }: Props) {
       ]
     },
     {
+      label: tr('gComms'),
+      items: [
+        { href: '/news', label: tr('news'), Icon: Newspaper, minTier: 1 },
+        { href: '/chat', label: tr('chat'), Icon: MessageSquare, minTier: 1 },
+        { href: '/docs', label: tr('docs'), Icon: FileText, minTier: 1 }
+      ]
+    },
+    {
       label: tr('gMgmt'),
-      items: [{ href: '/staff', label: tr('staff'), Icon: Users, minTier: 4 }]
+      items: [
+        { href: '/staff', label: tr('staff'), Icon: Users, minTier: 4 },
+        { href: '/crisis', label: tr('crisis'), Icon: Siren, minTier: 5 },
+        { href: '/settings', label: tr('settings'), Icon: Settings2, minTier: 5 }
+      ]
     }
   ];
 
   const closeDrawer = () => setOpen(false);
+  const bottomItems = [
+    { href: '/dashboard', label: tr('dashboard'), Icon: LayoutDashboard },
+    { href: '/incidents', label: tr('incidents'), Icon: AlertTriangle },
+    { href: '/shifts', label: tr('shifts'), Icon: CalendarClock },
+    { href: '/chat', label: tr('chat'), Icon: MessageSquare }
+  ];
 
   return (
     <div className="shell">
-      <div className="topbar">
+      {crisis.active && (
+        <div className="crisis-banner" style={{ position: 'fixed', left: 0, right: 0, top: 0 }}>
+          <Siren size={16} /> {tr('crisisActive')}{crisis.message ? ` — ${crisis.message}` : ''}
+        </div>
+      )}
+
+      <div className="topbar" style={crisis.active ? { top: 40 } : undefined}>
         <button className="burger" onClick={() => setOpen(!open)} aria-label="Meny">
           <Menu size={22} />
         </button>
-        <div className="brand-name">{tenant.event.name}</div>
+        <div className="brand-name">{brandName}</div>
         <div className="mono" style={{ marginLeft: 'auto', fontSize: 13 }}>
           <span className="pulse" />{clock}
         </div>
@@ -97,11 +148,11 @@ export default function Shell({ role, name, children }: Props) {
 
       <div className={`overlay ${open ? 'show' : ''}`} onClick={closeDrawer} />
 
-      <aside className={`sidebar ${open ? 'open' : ''}`}>
+      <aside className={`sidebar ${open ? 'open' : ''}`} style={crisis.active ? { top: 40 } : undefined}>
         <div className="brand">
           <div className="brand-badge">{tenant.event.logoText}</div>
           <div>
-            <div className="brand-name">{tenant.event.name}</div>
+            <div className="brand-name">{brandName}</div>
             <div className="brand-sub">TOURNAMENTOPS · {tenant.event.sport.toUpperCase()}</div>
           </div>
         </div>
@@ -116,7 +167,7 @@ export default function Shell({ role, name, children }: Props) {
             <div className="spine-lbl">{tr('staffing')}</div>
           </div>
           <div className="spine-item">
-            <div className="spine-num">{clock.slice(0, 5)}</div>
+            <div className="spine-num">{clock}</div>
             <div className="spine-lbl">{tenant.event.city}</div>
           </div>
         </div>
@@ -152,7 +203,16 @@ export default function Shell({ role, name, children }: Props) {
         </div>
       </aside>
 
-      <main className="main">{children}</main>
+      <main className="main" style={crisis.active ? { paddingTop: 56 } : undefined}>{children}</main>
+
+      <nav className="bottombar">
+        {bottomItems.map(({ href, label, Icon }) => (
+          <Link key={href} href={href} className={pathname.startsWith(href) ? 'active' : ''}>
+            <Icon size={19} /> {label}
+          </Link>
+        ))}
+        <button onClick={() => setOpen(true)}><Menu size={19} /> {tr('more')}</button>
+      </nav>
     </div>
   );
 }

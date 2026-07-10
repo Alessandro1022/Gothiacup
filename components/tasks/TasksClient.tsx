@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
-import { Plus, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useLang } from '@/components/LanguageProvider';
 
@@ -20,6 +20,7 @@ export default function TasksClient({ userId }: { userId: string }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [people, setPeople] = useState<Person[]>([]);
   const [showModal, setShowModal] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [fTitle, setFTitle] = useState('');
@@ -27,6 +28,23 @@ export default function TasksClient({ userId }: { userId: string }) {
   const [fPrio, setFPrio] = useState<Task['priority']>('normal');
   const [fAssign, setFAssign] = useState('');
   const [saving, setSaving] = useState(false);
+
+  const openEdit = (t: Task) => {
+    setEditId(t.id);
+    setFTitle(t.title); setFDesc(t.description ?? '');
+    setFPrio(t.priority); setFAssign(t.assigned_to ?? '');
+    setShowModal(true);
+  };
+  const openNew = () => {
+    setEditId(null);
+    setFTitle(''); setFDesc(''); setFPrio('normal'); setFAssign('');
+    setShowModal(true);
+  };
+  const removeTask = async (t: Task) => {
+    if (!confirm(tr('confirmDelete'))) return;
+    await supabase.from('tasks').delete().eq('id', t.id);
+    load();
+  };
 
   const load = useCallback(async () => {
     const { data } = await supabase
@@ -59,14 +77,21 @@ export default function TasksClient({ userId }: { userId: string }) {
     load();
   };
 
-  const createTask = async () => {
+  const saveTask = async () => {
     setSaving(true);
-    await supabase.from('tasks').insert({
-      title: fTitle, description: fDesc || null, priority: fPrio,
-      assigned_to: fAssign || null, created_by: userId
-    });
+    if (editId) {
+      await supabase.from('tasks').update({
+        title: fTitle, description: fDesc || null, priority: fPrio,
+        assigned_to: fAssign || null
+      }).eq('id', editId);
+    } else {
+      await supabase.from('tasks').insert({
+        title: fTitle, description: fDesc || null, priority: fPrio,
+        assigned_to: fAssign || null, created_by: userId
+      });
+    }
     setSaving(false);
-    setShowModal(false);
+    setShowModal(false); setEditId(null);
     setFTitle(''); setFDesc(''); setFPrio('normal'); setFAssign('');
     load();
   };
@@ -80,7 +105,7 @@ export default function TasksClient({ userId }: { userId: string }) {
     <>
       <div className="row-between">
         <h1 className="page-title">{tr('tasks')}</h1>
-        <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+        <button className="btn btn-primary" onClick={openNew}>
           <Plus size={15} style={{ verticalAlign: -2, marginRight: 5 }} />{tr('newTask')}
         </button>
       </div>
@@ -97,7 +122,7 @@ export default function TasksClient({ userId }: { userId: string }) {
               </div>
               {inCol.map((t) => (
                 <div key={t.id} className="kanban-card">
-                  <div className="kc-title">{t.title}</div>
+                  <div className="kc-title" style={{ cursor: 'pointer' }} onClick={() => openEdit(t)}>{t.title}</div>
                   <div className="kc-meta">
                     <span className={`badge b-${t.priority === 'high' ? 'high' : t.priority === 'low' ? 'low' : 'medium'}`}>
                       {tr(t.priority === 'low' ? 'prLow' : t.priority === 'high' ? 'prHigh' : 'prNormal')}
@@ -116,6 +141,9 @@ export default function TasksClient({ userId }: { userId: string }) {
                     <button className="move-btn" disabled={col === 'done'} onClick={() => move(t, 1)} aria-label="Flytta höger">
                       <ChevronRight size={15} />
                     </button>
+                    <button className="move-btn" onClick={() => removeTask(t)} aria-label="Radera">
+                      <Trash2 size={14} />
+                    </button>
                   </div>
                 </div>
               ))}
@@ -127,7 +155,7 @@ export default function TasksClient({ userId }: { userId: string }) {
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h3>{tr('newTask')}</h3>
+            <h3>{editId ? tr('edit') : tr('newTask')}</h3>
 
             <label className="label">{tr('title')}</label>
             <input className="input" value={fTitle} onChange={(e) => setFTitle(e.target.value)} />
@@ -150,7 +178,7 @@ export default function TasksClient({ userId }: { userId: string }) {
 
             <div className="modal-actions">
               <button className="btn" onClick={() => setShowModal(false)}>{tr('cancel')}</button>
-              <button className="btn btn-primary" disabled={!fTitle || saving} onClick={createTask}>{tr('create')}</button>
+              <button className="btn btn-primary" disabled={!fTitle || saving} onClick={saveTask}>{tr('create')}</button>
             </div>
           </div>
         </div>

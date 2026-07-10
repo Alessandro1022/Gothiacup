@@ -34,6 +34,9 @@ export default function ArenaDetailClient({ arena, userId }: { arena: Arena; use
   const [sEntry, setSEntry] = useState(''); const [sSev, setSSev] = useState('low');
   const [cCount, setCCount] = useState('');
   const [tmplId, setTmplId] = useState('');
+  const [editM, setEditM] = useState<Match | null>(null);
+  const [emSurf, setEmSurf] = useState(''); const [emHome, setEmHome] = useState(''); const [emAway, setEmAway] = useState('');
+  const [emCat, setEmCat] = useState(''); const [emTime, setEmTime] = useState('');
 
   const load = useCallback(async () => {
     const [m, s, c, t, r] = await Promise.all([
@@ -81,6 +84,26 @@ export default function ArenaDetailClient({ arena, userId }: { arena: Arena; use
     });
     setMSurf(''); setMHome(''); setMAway(''); setMCat(''); setMTime('');
     load();
+  };
+  const openEditMatch = (m: Match) => {
+    setEditM(m);
+    setEmSurf(m.surface_label); setEmHome(m.home_team); setEmAway(m.away_team);
+    setEmCat(m.category ?? '');
+    const d = new Date(m.starts_at);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    setEmTime(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`);
+  };
+  const saveMatch = async () => {
+    if (!editM) return;
+    await supabase.from('arena_matches').update({
+      surface_label: emSurf, home_team: emHome, away_team: emAway,
+      category: emCat || null, starts_at: new Date(emTime).toISOString()
+    }).eq('id', editM.id);
+    setEditM(null); load();
+  };
+  const removeMatch = async (m: Match) => {
+    if (!confirm(tr('confirmDelete'))) return;
+    await supabase.from('arena_matches').delete().eq('id', m.id); load();
   };
   const setMatchStatus = async (id: string, status: string) => {
     await supabase.from('arena_matches').update({ status }).eq('id', id);
@@ -164,7 +187,22 @@ export default function ArenaDetailClient({ arena, userId }: { arena: Arena; use
                   {MATCH_STATUSES.filter((s) => s !== m.status).map((s) => (
                     <button key={s} className="btn btn-sm" onClick={() => setMatchStatus(m.id, s)}>{msLabel(s)}</button>
                   ))}
+                  <button className="btn btn-sm" onClick={() => openEditMatch(m)}>{tr('edit')}</button>
+                  <button className="btn btn-sm btn-danger" onClick={() => removeMatch(m)}>{tr('deleteLbl')}</button>
                 </div>
+                {editM?.id === m.id && (
+                  <div className="inline-form cols" style={{ marginTop: 10, marginBottom: 0 }}>
+                    <div><label className="label">{tenant.labels.playingArea}</label><input className="input" value={emSurf} onChange={(e) => setEmSurf(e.target.value)} /></div>
+                    <div><label className="label">{tr('homeTeam')}</label><input className="input" value={emHome} onChange={(e) => setEmHome(e.target.value)} /></div>
+                    <div><label className="label">{tr('awayTeam')}</label><input className="input" value={emAway} onChange={(e) => setEmAway(e.target.value)} /></div>
+                    <div><label className="label">{tr('category')}</label><input className="input" value={emCat} onChange={(e) => setEmCat(e.target.value)} /></div>
+                    <div><label className="label">{tenant.labels.matchStart}</label><input className="input" type="datetime-local" value={emTime} onChange={(e) => setEmTime(e.target.value)} /></div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button className="btn btn-sm" onClick={() => setEditM(null)}>{tr('cancel')}</button>
+                      <button className="btn btn-sm btn-primary" onClick={saveMatch}>{tr('save')}</button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
             {matches.length === 0 && <div className="page-sub">{tr('nothingHere')}</div>}

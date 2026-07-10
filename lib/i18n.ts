@@ -4,7 +4,7 @@ export const LANGS: Lang[] = ['sv', 'en', 'no', 'de', 'es', 'fr'];
 
 const sv = {
   dashboard: 'Översikt', incidents: 'Incidenter', tasks: 'Uppgifter', logout: 'Logga ut',
-  gOverview: 'Översikt', gOps: 'Drift', gArea: 'Områdesdrift', gMgmt: 'Ledning',
+  gOverview: 'Översikt', gOps: 'Drift', gArea: 'Områdesdrift', gMgmt: 'Ledning', gComms: 'Kommunikation',
   create: 'Skapa', cancel: 'Avbryt', title: 'Titel', description: 'Beskrivning',
   severity: 'Allvarlighet', status: 'Status', assign: 'Tilldela', unassigned: 'Otilldelad',
   location: 'Plats', none: 'Ingen', all: 'Alla', loading: 'Laddar…', priority: 'Prioritet',
@@ -28,26 +28,46 @@ const sv = {
   allOk: 'Allt OK', notes: 'Anteckningar', capacity: 'Kapacitet',
   contactName: 'Kontaktperson', phone: 'Telefon', country: 'Land', groupSize: 'Antal personer',
   holder: 'Innehavare', newShift: 'Nytt pass', myShifts: 'Mina pass', allShifts: 'Alla pass',
-  save: 'Spara', name: 'Namn', addClassroom: 'Nytt klassrum',
-  tmExpected: 'Väntas', tmCheckedIn: 'Incheckad', tmCheckedOut: 'Utcheckad',
-  homeTeam: 'Hemmalag', awayTeam: 'Bortalag', category: 'Klass', countLbl: 'Antal',
-  addEntry: 'Logga händelse', newCount: 'Ny räkning', startRun: 'Starta checklista',
-  back: 'Tillbaka', addKey: 'Ny nyckel', keyIn: 'Inne', keyOut: 'Utlämnad', keyLost: 'Förlorad',
-  remove: 'Ta bort', addMatch: 'Ny match',
-  msScheduled: 'Planerad', msOngoing: 'Pågår', msFinished: 'Slut', msCancelled: 'Inställd',
+  startTime: 'Start', endTime: 'Slut', person: 'Person',
   shPlanned: 'Planerat', shMissed: 'Missat',
-  scope: 'Behörighet', wholeArea: 'Helt område', singlePlace: 'Enskild plats',
-  latestCount: 'Senaste räkning', person: 'Person', roleLbl: 'Roll',
-  openIssues: 'Öppna fel', teamsIn: 'Incheckade lag', live: 'LIVE',
-  startTime: 'Start', endTime: 'Slut', details: 'Detaljer',
-  noScope: 'Ingen behörighet tilldelad'
+  addMatch: 'Ny match', homeTeam: 'Hemmalag', awayTeam: 'Bortalag', category: 'Klass',
+  msScheduled: 'Planerad', msOngoing: 'Pågår', msFinished: 'Slut', msCancelled: 'Inställd',
+  addEntry: 'Logga händelse', newCount: 'Ny räkning', latestCount: 'Senaste räkning',
+  countLbl: 'Antal', startRun: 'Starta checklista',
+  tmExpected: 'Väntas', tmCheckedIn: 'Incheckad', tmCheckedOut: 'Utcheckad',
+  back: 'Tillbaka', save: 'Spara', remove: 'Ta bort', name: 'Namn',
+  addClassroom: 'Nytt klassrum', addKey: 'Ny nyckel',
+  keyIn: 'Inne', keyOut: 'Utlämnad', keyLost: 'Förlorad',
+  roleLbl: 'Roll', scopeTitle: 'Behörighet', wholeArea: 'Helt område', singlePlace: 'Enskild plats',
+  searchLbl: 'Sök…', openIssues: 'Öppna fel', teamsIn: 'Incheckade lag',
+  live: 'LIVE', upcoming: 'Kommande',
+  // ---- Del 3 ----
+  reports: 'Rapporter', news: 'Nyheter', chat: 'Chatt', docs: 'Dokument',
+  crisis: 'Krisläge', settings: 'Inställningar', more: 'Mer',
+  edit: 'Redigera', deleteLbl: 'Radera', confirmDelete: 'Radera? Detta går inte att ångra.',
+  comments: 'Kommentarer', send: 'Skicka', writeMsg: 'Skriv meddelande…',
+  pinnedLbl: 'Fäst', pin: 'Fäst', unpin: 'Släpp', newPost: 'Nytt inlägg', minTier: 'Synlig från nivå',
+  general: 'Allmänt', leadershipCh: 'Ledning',
+  addDoc: 'Nytt dokument', urlLbl: 'Länk (URL)', categoryLbl: 'Kategori', openDoc: 'Öppna',
+  activateCrisis: 'Aktivera krisläge', deactivateCrisis: 'Avaktivera',
+  crisisActive: 'KRISLÄGE AKTIVT', crisisMsg: 'Krismeddelande', crisisInactive: 'Krisläge inaktivt.',
+  requestSwap: 'Begär byte', swapReqs: 'Bytesförfrågningar', approve: 'Godkänn', reject: 'Neka',
+  swPending: 'Väntar', swApproved: 'Godkänt', swRejected: 'Nekat',
+  checkinCode: 'Incheckningskod', showQr: 'Visa QR', codeCheckin: 'Checka in med kod',
+  codeLbl: 'Kod', wrongCode: 'Ingen matchande kod på dina pass.', checkedInOk: 'Incheckad!',
+  perDay7: 'Incidenter · 7 dagar', bySeverity: 'Per allvarlighet', fillRate: 'Passtäckning just nu',
+  occupancyLbl: 'Beläggning per skola', openVsResolved: 'Öppna / lösta',
+  eventName: 'Eventnamn', primaryColor: 'Primärfärg (hex)', saveSettings: 'Spara inställningar',
+  settingsSaved: 'Sparat. Slår igenom direkt för alla.', resetLbl: 'Rensa överstyrning',
+  scope: 'Behörighet', noScope: 'Ingen behörighet', perDay: 'Per dag',
+  detailsLbl: 'Detaljer', assignedTo: 'Tilldelad', reportedBy: 'Rapporterad av', createdLbl: 'Skapad'
 };
 
 type Key = keyof typeof sv;
 
 const en: Partial<Record<Key, string>> = {
   dashboard: 'Overview', incidents: 'Incidents', tasks: 'Tasks', logout: 'Sign out',
-  gOverview: 'Overview', gOps: 'Operations', gArea: 'Area ops', gMgmt: 'Management',
+  gOverview: 'Overview', gOps: 'Operations', gArea: 'Area ops', gMgmt: 'Management', gComms: 'Communication',
   create: 'Create', cancel: 'Cancel', title: 'Title', description: 'Description',
   severity: 'Severity', status: 'Status', assign: 'Assign', unassigned: 'Unassigned',
   location: 'Location', none: 'None', all: 'All', loading: 'Loading…', priority: 'Priority',
@@ -70,44 +90,63 @@ const en: Partial<Record<Key, string>> = {
   allOk: 'All OK', notes: 'Notes', capacity: 'Capacity',
   contactName: 'Contact', phone: 'Phone', country: 'Country', groupSize: 'Group size',
   holder: 'Holder', newShift: 'New shift', myShifts: 'My shifts', allShifts: 'All shifts',
-  save: 'Save', name: 'Name', addClassroom: 'Add classroom',
-  tmExpected: 'Expected', tmCheckedIn: 'Checked in', tmCheckedOut: 'Checked out',
-  homeTeam: 'Home team', awayTeam: 'Away team', category: 'Category', countLbl: 'Count',
-  addEntry: 'Log entry', newCount: 'New count', startRun: 'Start checklist',
-  back: 'Back', addKey: 'Add key', keyIn: 'In', keyOut: 'Out', keyLost: 'Lost',
-  remove: 'Remove', addMatch: 'New match',
-  msScheduled: 'Scheduled', msOngoing: 'Live', msFinished: 'Finished', msCancelled: 'Cancelled',
+  startTime: 'Start', endTime: 'End', person: 'Person',
   shPlanned: 'Planned', shMissed: 'Missed',
-  scope: 'Access', wholeArea: 'Whole area', singlePlace: 'Single place',
-  latestCount: 'Latest count', person: 'Person', roleLbl: 'Role',
-  openIssues: 'Open issues', teamsIn: 'Teams in', live: 'LIVE',
-  startTime: 'Start', endTime: 'End', details: 'Details',
-  noScope: 'No access assigned'
+  addMatch: 'New match', homeTeam: 'Home team', awayTeam: 'Away team', category: 'Category',
+  msScheduled: 'Scheduled', msOngoing: 'Live', msFinished: 'Finished', msCancelled: 'Cancelled',
+  addEntry: 'Log entry', newCount: 'New count', latestCount: 'Latest count',
+  countLbl: 'Count', startRun: 'Start checklist',
+  tmExpected: 'Expected', tmCheckedIn: 'Checked in', tmCheckedOut: 'Checked out',
+  back: 'Back', save: 'Save', remove: 'Remove', name: 'Name',
+  addClassroom: 'New classroom', addKey: 'New key',
+  keyIn: 'In', keyOut: 'Out', keyLost: 'Lost',
+  roleLbl: 'Role', scopeTitle: 'Access', wholeArea: 'Whole area', singlePlace: 'Single place',
+  searchLbl: 'Search…', openIssues: 'Open issues', teamsIn: 'Teams checked in',
+  live: 'LIVE', upcoming: 'Upcoming',
+  reports: 'Reports', news: 'News', chat: 'Chat', docs: 'Documents',
+  crisis: 'Crisis mode', settings: 'Settings', more: 'More',
+  edit: 'Edit', deleteLbl: 'Delete', confirmDelete: 'Delete? This cannot be undone.',
+  comments: 'Comments', send: 'Send', writeMsg: 'Write a message…',
+  pinnedLbl: 'Pinned', pin: 'Pin', unpin: 'Unpin', newPost: 'New post', minTier: 'Visible from tier',
+  general: 'General', leadershipCh: 'Leadership',
+  addDoc: 'New document', urlLbl: 'Link (URL)', categoryLbl: 'Category', openDoc: 'Open',
+  activateCrisis: 'Activate crisis mode', deactivateCrisis: 'Deactivate',
+  crisisActive: 'CRISIS MODE ACTIVE', crisisMsg: 'Crisis message', crisisInactive: 'Crisis mode inactive.',
+  requestSwap: 'Request swap', swapReqs: 'Swap requests', approve: 'Approve', reject: 'Reject',
+  swPending: 'Pending', swApproved: 'Approved', swRejected: 'Rejected',
+  checkinCode: 'Check-in code', showQr: 'Show QR', codeCheckin: 'Check in with code',
+  codeLbl: 'Code', wrongCode: 'No matching code on your shifts.', checkedInOk: 'Checked in!',
+  perDay7: 'Incidents · 7 days', bySeverity: 'By severity', fillRate: 'Shift coverage now',
+  occupancyLbl: 'Occupancy per school', openVsResolved: 'Open / resolved',
+  eventName: 'Event name', primaryColor: 'Primary color (hex)', saveSettings: 'Save settings',
+  settingsSaved: 'Saved. Applies instantly for everyone.', resetLbl: 'Clear override',
+  scope: 'Access', noScope: 'No access', perDay: 'Per day',
+  detailsLbl: 'Details', assignedTo: 'Assigned to', reportedBy: 'Reported by', createdLbl: 'Created'
 };
 
 const no: Partial<Record<Key, string>> = {
   dashboard: 'Oversikt', incidents: 'Hendelser', tasks: 'Oppgaver', logout: 'Logg ut',
   signIn: 'Logg inn', email: 'E-post', password: 'Passord', create: 'Opprett', cancel: 'Avbryt',
   openIncidents: 'Åpne hendelser', openTasks: 'Åpne oppgaver', myTasks: 'Mine oppgaver',
-  shifts: 'Vakter', staff: 'Personale', teams: 'Lag', checkIn: 'Sjekk inn', checkOut: 'Sjekk ut'
+  shifts: 'Vakter', news: 'Nyheter', chat: 'Chat', docs: 'Dokumenter'
 };
 const de: Partial<Record<Key, string>> = {
   dashboard: 'Übersicht', incidents: 'Vorfälle', tasks: 'Aufgaben', logout: 'Abmelden',
   signIn: 'Anmelden', email: 'E-Mail', password: 'Passwort', create: 'Erstellen', cancel: 'Abbrechen',
   openIncidents: 'Offene Vorfälle', openTasks: 'Offene Aufgaben', myTasks: 'Meine Aufgaben',
-  shifts: 'Schichten', staff: 'Personal', teams: 'Teams', checkIn: 'Einchecken', checkOut: 'Auschecken'
+  shifts: 'Schichten', news: 'Nachrichten', chat: 'Chat', docs: 'Dokumente'
 };
 const es: Partial<Record<Key, string>> = {
   dashboard: 'Resumen', incidents: 'Incidencias', tasks: 'Tareas', logout: 'Cerrar sesión',
   signIn: 'Iniciar sesión', email: 'Correo', password: 'Contraseña', create: 'Crear', cancel: 'Cancelar',
   openIncidents: 'Incidencias abiertas', openTasks: 'Tareas abiertas', myTasks: 'Mis tareas',
-  shifts: 'Turnos', staff: 'Personal', teams: 'Equipos', checkIn: 'Registrar entrada', checkOut: 'Registrar salida'
+  shifts: 'Turnos', news: 'Noticias', chat: 'Chat', docs: 'Documentos'
 };
 const fr: Partial<Record<Key, string>> = {
   dashboard: 'Aperçu', incidents: 'Incidents', tasks: 'Tâches', logout: 'Déconnexion',
   signIn: 'Connexion', email: 'E-mail', password: 'Mot de passe', create: 'Créer', cancel: 'Annuler',
   openIncidents: 'Incidents ouverts', openTasks: 'Tâches ouvertes', myTasks: 'Mes tâches',
-  shifts: 'Vacations', staff: 'Personnel', teams: 'Équipes', checkIn: 'Arrivée', checkOut: 'Départ'
+  shifts: 'Gardes', news: 'Actualités', chat: 'Chat', docs: 'Documents'
 };
 
 const dicts: Record<Lang, Partial<Record<Key, string>>> = { sv, en, no, de, es, fr };

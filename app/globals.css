@@ -237,6 +237,8 @@ a.list-item:hover, .list-item.clickable:hover { border-color: var(--primary); }
 
 /* ---- Mobil ---- */
 @media (max-width: 900px) {
+  .shell { display: block; }           /* fix: topbaren blev en kolumn i flex-raden */
+  .topbar { width: 100%; }
   .sidebar { transform: translateX(-100%); }
   .sidebar.open { transform: translateX(0); }
   .main { margin-left: 0; padding: 14px 14px 88px; }
@@ -245,6 +247,12 @@ a.list-item:hover, .list-item.clickable:hover { border-color: var(--primary); }
   .overlay.show { display: block; position: fixed; inset: 0; background: rgba(15, 30, 48, .45); z-index: 35; }
   .kanban { grid-template-columns: 1fr; }
   .btn, .chip, .tab { min-height: 42px; } /* stora touch-ytor */
+  .cards { grid-template-columns: repeat(2, 1fr); gap: 9px; }
+  .card { padding: 12px; border-radius: 14px; }
+  .kpi-num { font-size: 23px; }
+  .big-num { font-size: 36px; }
+  .page-title { font-size: 19px; }
+  .grid-cards { grid-template-columns: 1fr; }
   .chat-box { height: calc(100vh - 310px); }
   .bar-row { grid-template-columns: 84px 1fr 40px; }
 }

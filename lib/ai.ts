@@ -3,7 +3,7 @@
 // säkerhetsbilarna deterministiskt, och låter Gemini skriva rapporterna.
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-const MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+const MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
 // ---------- Gemini ----------
 export async function callGemini(prompt: string): Promise<string> {

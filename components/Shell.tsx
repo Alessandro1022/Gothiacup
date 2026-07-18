@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import {
   Menu, LayoutDashboard, AlertTriangle, CheckSquare, LogOut,
   Map, School, Landmark, CalendarClock, Users, BarChart3,
-  Newspaper, MessageSquare, FileText, Siren, Settings2
+  Newspaper, MessageSquare, FileText, Siren, Settings2, Sparkles, History
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { tenant } from '@/lib/tenant';
@@ -83,7 +83,8 @@ export default function Shell({ role, name, children }: Props) {
       label: tr('gOverview'),
       items: [
         { href: '/dashboard', label: tr('dashboard'), Icon: LayoutDashboard, minTier: 1 },
-        { href: '/reports', label: tr('reports'), Icon: BarChart3, minTier: 3 }
+        { href: '/reports', label: tr('reports'), Icon: BarChart3, minTier: 3 },
+        { href: '/ai', label: tr('aiTitle'), Icon: Sparkles, minTier: 2 }
       ]
     },
     {
@@ -114,6 +115,7 @@ export default function Shell({ role, name, children }: Props) {
       label: tr('gMgmt'),
       items: [
         { href: '/staff', label: tr('staff'), Icon: Users, minTier: 4 },
+        { href: '/history', label: tr('history'), Icon: History, minTier: 4 },
         { href: '/crisis', label: tr('crisis'), Icon: Siren, minTier: 5 },
         { href: '/settings', label: tr('settings'), Icon: Settings2, minTier: 5 }
       ]

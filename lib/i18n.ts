@@ -60,6 +60,15 @@ const sv = {
   eventName: 'Eventnamn', primaryColor: 'Primärfärg (hex)', saveSettings: 'Spara inställningar',
   settingsSaved: 'Sparat. Slår igenom direkt för alla.', resetLbl: 'Rensa överstyrning',
   scope: 'Behörighet', noScope: 'Ingen behörighet', perDay: 'Per dag',
+  aiTitle: 'AI-assistent', aiSub: 'Dagsrapporter, flaggade matcher och säkerhetsrutter',
+  aiOverview: 'Översikt', aiSecurity: 'Säkerhet', aiMorning: 'Morgon', aiEvening: 'Kväll', aiManual: 'Manuell',
+  aiWorking: 'Genererar…', aiNoReport: 'Ingen rapport ännu – tryck Generera, eller vänta på nästa schemalagda körning (07:00/21:00).',
+  generate: 'Generera', askAi: 'Fråga AI:n', askPlaceholder: 'Fråga om läget…',
+  history: 'Historik', historySub: 'Vem som gjort vad – alla ändringar loggas',
+  invite: 'Bjud in', inviteSent: 'Inbjudan skickad – personen får ett mejl.', sendInvite: 'Skicka inbjudan',
+  riskLbl: 'Risknivå', riskGreen: 'Grön', riskYellow: 'Gul', riskRed: 'Röd',
+  riskLegend: 'Grön = planvärd + domare · Gul = matchdelegat kopplas in · Röd = säkerhetsgruppen',
+  autoAssign: 'Fördela lag automatiskt', autoAssigned: 'lag fördelades till klassrum',
   detailsLbl: 'Detaljer', assignedTo: 'Tilldelad', reportedBy: 'Rapporterad av', createdLbl: 'Skapad'
 };
 
@@ -121,6 +130,15 @@ const en: Partial<Record<Key, string>> = {
   eventName: 'Event name', primaryColor: 'Primary color (hex)', saveSettings: 'Save settings',
   settingsSaved: 'Saved. Applies instantly for everyone.', resetLbl: 'Clear override',
   scope: 'Access', noScope: 'No access', perDay: 'Per day',
+  aiTitle: 'AI assistant', aiSub: 'Daily reports, flagged matches and security routes',
+  aiOverview: 'Overview', aiSecurity: 'Security', aiMorning: 'Morning', aiEvening: 'Evening', aiManual: 'Manual',
+  aiWorking: 'Generating…', aiNoReport: 'No report yet – press Generate, or wait for the next scheduled run (07:00/21:00).',
+  generate: 'Generate', askAi: 'Ask the AI', askPlaceholder: 'Ask about the situation…',
+  history: 'History', historySub: 'Who did what – every change is logged',
+  invite: 'Invite', inviteSent: 'Invitation sent – they will receive an email.', sendInvite: 'Send invitation',
+  riskLbl: 'Risk level', riskGreen: 'Green', riskYellow: 'Yellow', riskRed: 'Red',
+  riskLegend: 'Green = pitch host + referee · Yellow = match delegate · Red = security group',
+  autoAssign: 'Auto-assign teams', autoAssigned: 'teams assigned to classrooms',
   detailsLbl: 'Details', assignedTo: 'Assigned to', reportedBy: 'Reported by', createdLbl: 'Created'
 };
 

@@ -1,54 +1,62 @@
-# TournamentOps — Del 3 (Enterprise)
+# TournamentOps — Del 4 (AI, säkerhet, inbjudningar, historik)
 
-Kräver att **Del 1 och Del 2 är uppe**.
+Kräver Del 1–3.
 
 ## Körordning
 
-1. Kör `supabase/schema_part3.sql` i Supabase SQL Editor.
-2. Ladda upp alla filer/mappar till roten av repot (samma sökvägar skrivs över — det är meningen).
-   **Viktigt:** `package.json` ersätts (ny dependency: `qrcode.react`). Vercel installerar automatiskt.
-3. Vercel bygger om. Inga nya env-variabler.
+1. Kör `supabase/schema_part4.sql` i Supabase SQL Editor.
+2. Lägg till TRE miljövariabler i Vercel (Settings → Environment Variables):
+   - `GEMINI_API_KEY` — skapa gratis på https://aistudio.google.com → Get API key
+   - `SUPABASE_SERVICE_ROLE_KEY` — Supabase → Project Settings → API → service_role (hemlig!)
+   - `CRON_SECRET` — valfri lång slumpsträng (skyddar cron-endpointen)
+3. Ladda upp alla filer/mappar till repot (samma sökvägar skrivs över).
+4. Vercel bygger om. Klart.
 
-## Ny design — Gothia Cup-stil
+## AI-assistenten (`/ai`)
 
-Hela appen är omgjord för att matcha gothiacup.se: ljust, vitt, rundade kort, deras blå som
-primärfärg och gul accent. Mörkblå sidomeny/topbar. Partille-tenanten får samma struktur i grönt.
-Snabbare också: alla tunga effekter (blur, 3D, scanning) är borttagna, och sidbyten visar
-direkt ett laddningsskelett (`app/(app)/loading.tsx`) istället för att kännas frusna.
-Mobil: ny bottennav (Översikt · Incidenter · Pass · Chatt · Mer) med stora touch-ytor.
+- **Automatiska rapporter 07:00 och 21:00 svensk tid** (Vercel Cron):
+  - **Översikt** — för ledningen: läget, att agera på, incidenter senaste dygnet, bemanning, prognos.
+  - **Skolor** — för skolvärdarna: vilka skolor behöver uppmärksamhet, beläggning, öppna fel, nattronder, att-göra-lista.
+  - **Säkerhet** — körorder för de 4 säkerhetsbilarna (se nedan).
+  - **Matcher** — genereras automatiskt de dagar det finns gula/röda matcher.
+- Tier ≥ 3 kan generera om manuellt. Alla tier ≥ 2 kan läsa och **fråga AI:n** fritt om läget.
+- AI:n hittar inte på: den får en exakt lägesbild ur databasen (incidenter, skolor, beläggning,
+  nattronder, matcher med riskflaggor, pass, publikräkningar) och skriver utifrån den.
 
-## NYA funktioner
+## Riskflaggade matcher
 
-| Sida | Vad |
-|---|---|
-| **Rapporter** (tier ≥ 3) | BI: incidenter per dag/allvarlighet, öppna vs lösta, passtäckning live, beläggning per skola. |
-| **Nyheter** | Nyhetsflöde från ledningen (tier ≥ 4 publicerar), fäst inlägg, synlighetsnivå per inlägg. |
-| **Chatt** | Realtidschatt: Allmänt (alla), Ledning (tier ≥ 4), en kanal per område (scope styr). |
-| **Dokument** | Länkbibliotek per kategori med synlighetsnivå. Tier ≥ 4 hanterar. |
-| **Krisläge** (tier ≥ 5) | Aktivera med meddelande → röd banner visas direkt för all personal på alla sidor (realtime). |
-| **Inställningar** (tier ≥ 5) | Runtime white-label: byt eventnamn + primärfärg live för alla, utan omdeploy. |
-| **Incidentdetalj** | Klicka på valfri incident → full detalj: redigera allt, tilldela, kommentarstråd i realtid, radera. |
-| **Pass-byten** | Personal begär byte på sina pass; chefer godkänner/nekar. Godkänt byte öppnar passet för omtillsättning. |
-| **QR-/kodincheckning** | Varje pass har en kod. Chefer visar QR (skannas med mobilkameran) eller så anger personalen koden på Pass-sidan. |
-| **PWA-grund** | Service worker cachar statiska filer och senast besökta sidor som offline-fallback. |
+Varje match har nu risknivå som sätts i matchredigeringen på arenasidan:
+**Grön** = planvärd + domare räcker · **Gul** = matchdelegat kopplas in · **Röd** = säkerhetsgruppen.
+Syns som badge i matchlistan och styr både matchrapporten och bilrutterna.
 
-## Redigera/radera överallt
+## Säkerhetsbilarnas rutter
 
-Lag (redigera alla fält + radera), matcher (redigera + radera), klassrum, felanmälningar,
-nycklar, uppgifter (klicka på titeln i kanban → redigera; papperskorg raderar), incidenter
-(via detaljsidan), pass, nyheter, dokument.
+Fyra bilar (tabellen `security_cars`) får varje morgon och kväll beräknade rutter:
+skolor poängsätts (öppna incidenter, öppna fel, saknad/anmärkt nattrond, hög beläggning,
+gul/röd match i området), hålls ihop områdesvis och balanseras mellan bilarna, prioritetsordnade
+per bil. AI:n skriver körordern ovanpå. Allt syns under AI → Säkerhet.
 
-## ERSÄTTER (skriv över)
+## Inbjudningar
 
-`package.json`, `lib/tenant.ts`, `lib/i18n.ts`, `app/layout.tsx`, `app/globals.css`,
-`components/Shell.tsx`, `components/tasks/TasksClient.tsx`, `components/incidents/IncidentsClient.tsx`,
-`components/shifts/ShiftsClient.tsx`, `components/schools/SchoolDetailClient.tsx`,
-`components/arenas/ArenaDetailClient.tsx`
+Personal → **Bjud in** (admin+): ange e-post, roll och behörighet. Supabase mejlar inbjudan;
+när personen sätter lösenord och loggar in första gången appliceras roll + scope automatiskt.
+OBS: Supabase inbyggda mejl har låg gräns (~2/timme). För volym: Supabase → Auth → SMTP Settings
+→ koppla egen SMTP (t.ex. Resend, gratis-tier räcker långt).
 
-## Testa
+## Ändringshistorik
 
-1. Ny look direkt efter deploy — ljus Gothia-stil, bottennav på mobilen.
-2. Incidenter → klicka en titel → redigera, kommentera från två webbläsare (realtid).
-3. Pass → skapa pass på dig själv → "Visa QR" → skanna med mobilen → incheckad.
-4. Krisläge → aktivera → röd banner överallt, direkt.
-5. Inställningar → byt primärfärg → hela appen byter färg live.
+Allt loggas nu (incidenter, uppgifter, pass, nycklar, lag, matcher, klassrum, fel, nyheter,
+dokument, behörigheter). Ny sida **Historik** (tier ≥ 4) med filter per typ, och en
+historiksektion på varje incidentdetalj.
+
+## Skolvärdar
+
+- **Fördela lag automatiskt**: knapp på skolans Lag-flik — packar otilldelade lag i klassrum
+  med bäst passande ledig kapacitet (största laget först).
+- Överbelagda klassrum visas med röd siffra.
+
+## ERSÄTTER
+
+`middleware.ts`, `lib/i18n.ts`, `components/Shell.tsx`, `components/staff/StaffClient.tsx`,
+`components/arenas/ArenaDetailClient.tsx`, `components/schools/SchoolDetailClient.tsx`,
+`components/incidents/IncidentDetailClient.tsx`

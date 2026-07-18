@@ -144,6 +144,30 @@ export default function SchoolDetailClient({ school, userId }: { school: School;
     if (!confirm(tr('confirmDelete'))) return;
     await supabase.from('room_issues').delete().eq('id', id); load();
   };
+  const autoAssign = async () => {
+    // Best fit: största laget först in i rummet med minst kvarvarande plats som ändå räcker
+    const activeTeams = teams.filter((t) => t.status !== 'checked_out');
+    const used = new Map<string, number>();
+    for (const r of rooms) used.set(r.id, 0);
+    for (const t of activeTeams) if (t.classroom_id && used.has(t.classroom_id)) {
+      used.set(t.classroom_id, (used.get(t.classroom_id) ?? 0) + t.group_size);
+    }
+    const unassigned = activeTeams.filter((t) => !t.classroom_id).sort((a, b) => b.group_size - a.group_size);
+    let placed = 0;
+    for (const t of unassigned) {
+      const fit = rooms
+        .map((r) => ({ r, left: r.capacity - (used.get(r.id) ?? 0) }))
+        .filter((x) => x.left >= t.group_size)
+        .sort((a, b) => a.left - b.left)[0];
+      if (!fit) continue;
+      await supabase.from('team_assignments').update({ classroom_id: fit.r.id }).eq('id', t.id);
+      used.set(fit.r.id, (used.get(fit.r.id) ?? 0) + t.group_size);
+      placed++;
+    }
+    alert(`${placed} ${tr('autoAssigned')}`);
+    load();
+  };
+
   const removeKey = async (id: string) => {
     if (!confirm(tr('confirmDelete'))) return;
     await supabase.from('room_keys').delete().eq('id', id); load();
@@ -177,6 +201,7 @@ export default function SchoolDetailClient({ school, userId }: { school: School;
             <div><label className="label">{tr('contactName')}</label><input className="input" value={tContact} onChange={(e) => setTContact(e.target.value)} /></div>
             <div><label className="label">{tr('phone')}</label><input className="input" value={tPhone} onChange={(e) => setTPhone(e.target.value)} /></div>
             <button className="btn btn-primary" onClick={addTeam}>{tr('addTeam')}</button>
+          <button className="btn" onClick={autoAssign}>{tr('autoAssign')}</button>
           </div>
           <div className="list">
             {teams.map((t) => (
@@ -237,7 +262,7 @@ export default function SchoolDetailClient({ school, userId }: { school: School;
                       <div className="li-meta">{occupants.map((o) => o.team_name).join(', ') || '—'}</div>
                     </div>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                      <span className="mono" style={{ fontSize: 13 }}>{occupants.reduce((s, o) => s + o.group_size, 0)}/{r.capacity}</span>
+                      <span className="mono" style={{ fontSize: 13, color: occupants.reduce((s, o) => s + o.group_size, 0) > r.capacity ? 'var(--danger)' : undefined, fontWeight: occupants.reduce((s, o) => s + o.group_size, 0) > r.capacity ? 700 : undefined }}>{occupants.reduce((s, o) => s + o.group_size, 0)}/{r.capacity}</span>
                       <button className="btn btn-sm btn-danger" onClick={() => removeRoom(r.id)}>{tr('deleteLbl')}</button>
                     </div>
                   </div>

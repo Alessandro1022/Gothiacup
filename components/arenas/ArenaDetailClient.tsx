@@ -7,7 +7,7 @@ import { useLang } from '@/components/LanguageProvider';
 import { tenant } from '@/lib/tenant';
 
 type Arena = { id: string; name: string; address: string | null; surface_count: number };
-type Match = { id: string; surface_label: string; home_team: string; away_team: string; category: string | null; starts_at: string; status: string };
+type Match = { id: string; surface_label: string; home_team: string; away_team: string; category: string | null; starts_at: string; status: string; risk_level: string; risk_note: string | null };
 type SecLog = { id: string; entry: string; severity: string; created_at: string };
 type Crowd = { id: string; count: number; created_at: string };
 type Template = { id: string; name: string; items: string[] };
@@ -37,6 +37,7 @@ export default function ArenaDetailClient({ arena, userId }: { arena: Arena; use
   const [editM, setEditM] = useState<Match | null>(null);
   const [emSurf, setEmSurf] = useState(''); const [emHome, setEmHome] = useState(''); const [emAway, setEmAway] = useState('');
   const [emCat, setEmCat] = useState(''); const [emTime, setEmTime] = useState('');
+  const [emRisk, setEmRisk] = useState('green'); const [emRiskNote, setEmRiskNote] = useState('');
 
   const load = useCallback(async () => {
     const [m, s, c, t, r] = await Promise.all([
@@ -89,6 +90,7 @@ export default function ArenaDetailClient({ arena, userId }: { arena: Arena; use
     setEditM(m);
     setEmSurf(m.surface_label); setEmHome(m.home_team); setEmAway(m.away_team);
     setEmCat(m.category ?? '');
+    setEmRisk(m.risk_level); setEmRiskNote(m.risk_note ?? '');
     const d = new Date(m.starts_at);
     const pad = (n: number) => String(n).padStart(2, '0');
     setEmTime(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`);
@@ -97,7 +99,8 @@ export default function ArenaDetailClient({ arena, userId }: { arena: Arena; use
     if (!editM) return;
     await supabase.from('arena_matches').update({
       surface_label: emSurf, home_team: emHome, away_team: emAway,
-      category: emCat || null, starts_at: new Date(emTime).toISOString()
+      category: emCat || null, starts_at: new Date(emTime).toISOString(),
+      risk_level: emRisk, risk_note: emRiskNote || null
     }).eq('id', editM.id);
     setEditM(null); load();
   };
@@ -197,6 +200,14 @@ export default function ArenaDetailClient({ arena, userId }: { arena: Arena; use
                     <div><label className="label">{tr('awayTeam')}</label><input className="input" value={emAway} onChange={(e) => setEmAway(e.target.value)} /></div>
                     <div><label className="label">{tr('category')}</label><input className="input" value={emCat} onChange={(e) => setEmCat(e.target.value)} /></div>
                     <div><label className="label">{tenant.labels.matchStart}</label><input className="input" type="datetime-local" value={emTime} onChange={(e) => setEmTime(e.target.value)} /></div>
+                    <div><label className="label">{tr('riskLbl')}</label>
+                      <select className="select" value={emRisk} onChange={(e) => setEmRisk(e.target.value)}>
+                        <option value="green">{tr('riskGreen')}</option>
+                        <option value="yellow">{tr('riskYellow')}</option>
+                        <option value="red">{tr('riskRed')}</option>
+                      </select>
+                    </div>
+                    <div><label className="label">{tr('notes')}</label><input className="input" value={emRiskNote} onChange={(e) => setEmRiskNote(e.target.value)} /></div>
                     <div style={{ display: 'flex', gap: 6 }}>
                       <button className="btn btn-sm" onClick={() => setEditM(null)}>{tr('cancel')}</button>
                       <button className="btn btn-sm btn-primary" onClick={saveMatch}>{tr('save')}</button>

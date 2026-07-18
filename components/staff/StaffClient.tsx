@@ -25,6 +25,30 @@ export default function StaffClient({ viewerRole }: { viewerRole: Role }) {
   const [pick, setPick] = useState(''); // 'area:ID' | 'school:ID' | 'arena:ID'
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(true);
+  const [invOpen, setInvOpen] = useState(false);
+  const [invEmail, setInvEmail] = useState('');
+  const [invRole, setInvRole] = useState<Role>('volunteer');
+  const [invPick, setInvPick] = useState('');
+  const [invMsg, setInvMsg] = useState(''); const [invErr, setInvErr] = useState('');
+  const [invBusy, setInvBusy] = useState(false);
+
+  const sendInvite = async () => {
+    setInvBusy(true); setInvErr(''); setInvMsg('');
+    const [k, id] = invPick ? invPick.split(':') : ['', ''];
+    const res = await fetch('/api/invite', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: invEmail.trim(), role: invRole,
+        areaId: k === 'area' ? id : null,
+        locationType: k === 'school' || k === 'arena' ? k : null,
+        locationId: k === 'school' || k === 'arena' ? id : null
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) setInvErr(data.error ?? 'Fel');
+    else { setInvMsg(tr('inviteSent')); setInvEmail(''); setInvPick(''); }
+    setInvBusy(false);
+  };
 
   const load = useCallback(async () => {
     const [p, sc, a, s, ar] = await Promise.all([
@@ -85,8 +109,14 @@ export default function StaffClient({ viewerRole }: { viewerRole: Role }) {
 
   return (
     <>
-      <h1 className="page-title">{tr('staff')}</h1>
-      <div className="page-sub">{people.length} · {tr('roleLbl').toLowerCase()} + {tr('scope').toLowerCase()}</div>
+      <div className="row-between">
+        <div>
+          <h1 className="page-title">{tr('staff')}</h1>
+          <div className="page-sub" style={{ marginBottom: 0 }}>{people.length} · {tr('roleLbl').toLowerCase()} + {tr('scope').toLowerCase()}</div>
+        </div>
+        {canEdit && <button className="btn btn-primary" onClick={() => setInvOpen(true)}>{tr('invite')}</button>}
+      </div>
+
 
       <input className="input" placeholder="Sök namn eller e-post…" value={q}
         onChange={(e) => setQ(e.target.value)} style={{ maxWidth: 340, marginBottom: 16 }} />
@@ -156,6 +186,41 @@ export default function StaffClient({ viewerRole }: { viewerRole: Role }) {
         })}
         {visible.length === 0 && <div className="page-sub">{tr('nothingHere')}</div>}
       </div>
+      {invOpen && (
+        <div className="modal-overlay" onClick={() => setInvOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3>{tr('invite')}</h3>
+            <div className="page-sub">Personen får ett mejl, sätter lösenord och landar med rätt roll + behörighet.</div>
+            <label className="label">{tr('email')}</label>
+            <input className="input" type="email" value={invEmail} onChange={(e) => setInvEmail(e.target.value)} placeholder="namn@gothiacup.se" />
+            <label className="label">{tr('roleLbl')}</label>
+            <select className="select" value={invRole} onChange={(e) => setInvRole(e.target.value as Role)}>
+              {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+            </select>
+            <label className="label">{tr('scope')}</label>
+            <select className="select" value={invPick} onChange={(e) => setInvPick(e.target.value)}>
+              <option value="">{tr('none')}</option>
+              <optgroup label={tr('wholeArea')}>
+                {areas.map((a) => <option key={a.id} value={`area:${a.id}`}>{a.name}</option>)}
+              </optgroup>
+              <optgroup label={tenant.labels.schools}>
+                {schools.map((sc) => <option key={sc.id} value={`school:${sc.id}`}>{sc.name}</option>)}
+              </optgroup>
+              <optgroup label={tenant.labels.playingAreas}>
+                {arenas.map((a) => <option key={a.id} value={`arena:${a.id}`}>{a.name}</option>)}
+              </optgroup>
+            </select>
+            {invErr && <div className="form-error">{invErr}</div>}
+            {invMsg && <div className="ok-msg">{invMsg}</div>}
+            <div className="modal-actions">
+              <button className="btn" onClick={() => setInvOpen(false)}>{tr('cancel')}</button>
+              <button className="btn btn-primary" onClick={sendInvite} disabled={invBusy || !invEmail}>
+                {invBusy ? '…' : tr('sendInvite')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

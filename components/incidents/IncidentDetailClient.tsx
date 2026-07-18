@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useLang } from '@/components/LanguageProvider';
 import { tierOf, type Role } from '@/lib/types';
 import { tenant } from '@/lib/tenant';
+import RowHistory from '@/components/history/RowHistory';
 
 type Inc = {
   id: string; title: string; description: string | null; severity: string; status: string;
@@ -185,6 +186,7 @@ export default function IncidentDetailClient({ incidentId, userId, role }: { inc
           onKeyDown={(e) => { if (e.key === 'Enter') addComment(); }} />
         <button className="btn btn-primary" onClick={addComment}>{tr('send')}</button>
       </div>
+      <RowHistory recordId={inc.id} />
     </>
   );
 }

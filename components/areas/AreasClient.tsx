@@ -1,91 +1,80 @@
 'use client';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useLang } from '@/components/LanguageProvider';
 import { tenant } from '@/lib/tenant';
 
-type Area = { id: string; name: string; description: string | null };
-type Place = { id: string; name: string; area_id: string | null };
-type Inc = { location_type: string | null; location_id: string | null };
-type Issue = { school_id: string };
-type Team = { school_id: string; status: string };
+// Databasen räknar, klienten ritar. En rad per område i stället för alla lag.
+type AreaStat = {
+  id: string; name: string; description: string | null;
+  n_schools: number; n_arenas: number; teams_in: number;
+  in_house: number; capacity: number; open_issues: number; open_incidents: number;
+};
 
 export default function AreasClient() {
   const { tr } = useLang();
   const supabase = createClient();
-  const [areas, setAreas] = useState<Area[]>([]);
-  const [schools, setSchools] = useState<Place[]>([]);
-  const [arenas, setArenas] = useState<Place[]>([]);
-  const [incidents, setIncidents] = useState<Inc[]>([]);
-  const [issues, setIssues] = useState<Issue[]>([]);
-  const [teams, setTeams] = useState<Team[]>([]);
+  const [rows, setRows] = useState<AreaStat[]>([]);
   const [loading, setLoading] = useState(true);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async () => {
-    const [a, s, ar, i, ri, t] = await Promise.all([
-      supabase.from('areas').select('id,name,description').order('name'),
-      supabase.from('schools').select('id,name,area_id'),
-      supabase.from('arenas').select('id,name,area_id'),
-      supabase.from('incidents').select('location_type,location_id').neq('status', 'resolved'),
-      supabase.from('room_issues').select('school_id').neq('status', 'resolved'),
-      supabase.from('team_assignments').select('school_id,status').eq('status', 'checked_in')
-    ]);
-    setAreas((a.data ?? []) as Area[]);
-    setSchools((s.data ?? []) as Place[]);
-    setArenas((ar.data ?? []) as Place[]);
-    setIncidents((i.data ?? []) as Inc[]);
-    setIssues((ri.data ?? []) as Issue[]);
-    setTeams((t.data ?? []) as Team[]);
+    const { data } = await supabase.from('area_stats').select('*').order('name');
+    setRows((data ?? []) as AreaStat[]);
     setLoading(false);
   }, [supabase]);
 
   useEffect(() => {
     load();
+    // Fördröjd omladdning: många ändringar i rad ger en enda uppdatering
+    const bump = () => {
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = setTimeout(load, 1500);
+    };
     const ch = supabase.channel('areas-rt')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'incidents' }, load)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'room_issues' }, load)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'team_assignments' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'incidents' }, bump)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'room_issues' }, bump)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'team_assignments' }, bump)
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    return () => {
+      if (timer.current) clearTimeout(timer.current);
+      supabase.removeChannel(ch);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [load]);
 
   if (loading) return <div className="page-sub">{tr('loading')}</div>;
 
-  const statsFor = (areaId: string) => {
-    const sIds = schools.filter((s) => s.area_id === areaId).map((s) => s.id);
-    const aIds = arenas.filter((a) => a.area_id === areaId).map((a) => a.id);
-    const openInc = incidents.filter((i) =>
-      (i.location_type === 'school' && i.location_id && sIds.includes(i.location_id)) ||
-      (i.location_type === 'arena' && i.location_id && aIds.includes(i.location_id))
-    ).length;
-    const openIssues = issues.filter((i) => sIds.includes(i.school_id)).length;
-    const teamsIn = teams.filter((t) => sIds.includes(t.school_id)).length;
-    return { schools: sIds.length, arenas: aIds.length, openInc, openIssues, teamsIn };
-  };
-
   return (
     <>
       <h1 className="page-title">{tenant.labels.areas}</h1>
-      <div className="page-sub"><span className="pulse" />{tr('live').toLowerCase()} · aggregerad status per {tenant.labels.area.toLowerCase()}</div>
+      <div className="page-sub">
+        <span className="pulse" />{tr('live').toLowerCase()} · aggregerad status per {tenant.labels.area.toLowerCase()}
+      </div>
 
       <div className="grid-cards">
-        {areas.map((a) => {
-          const st = statsFor(a.id);
+        {rows.map((a) => {
+          const pct = a.capacity > 0 ? Math.min(100, Math.round((a.in_house / a.capacity) * 100)) : 0;
           return (
             <div key={a.id} className="card link-card">
               <div className="li-head">
                 <div className="li-title">{a.name}</div>
-                {st.openInc > 0 && <span className="badge b-critical">{st.openInc} {tr('incidents').toLowerCase()}</span>}
+                {a.open_incidents > 0 && (
+                  <span className="badge b-critical">{a.open_incidents} {tr('incidents').toLowerCase()}</span>
+                )}
               </div>
               {a.description && <div className="li-meta">{a.description}</div>}
-              <div className="stat-row">
-                <div className="stat"><div className="num">{st.schools}</div><div className="lbl">{tenant.labels.schools}</div></div>
-                <div className="stat"><div className="num">{st.arenas}</div><div className="lbl">{tenant.labels.playingAreas}</div></div>
-                <div className="stat"><div className="num">{st.teamsIn}</div><div className="lbl">{tr('teamsIn')}</div></div>
-                <div className="stat"><div className="num">{st.openIssues}</div><div className="lbl">{tr('openIssues')}</div></div>
+
+              <div className="stat-row"><span>{tenant.labels.schools}</span><b>{a.n_schools}</b></div>
+              <div className="stat-row"><span>{tenant.labels.playingAreas}</span><b>{a.n_arenas}</b></div>
+              <div className="stat-row"><span>{tr('teamsIn')}</span><b>{a.teams_in}</b></div>
+              <div className="stat-row"><span>{tr('openIssues')}</span><b>{a.open_issues}</b></div>
+              <div className="stat-row" style={{ marginBottom: 6 }}>
+                <span>{tr('capacity')}</span><b>{a.in_house}/{a.capacity} · {pct}%</b>
               </div>
+              <div className="prog"><div style={{ width: `${pct}%` }} /></div>
+
               <div className="li-actions">
                 <Link href="/schools" className="btn btn-sm">{tenant.labels.schools}</Link>
                 <Link href="/arenas" className="btn btn-sm">{tenant.labels.playingAreas}</Link>
@@ -93,7 +82,7 @@ export default function AreasClient() {
             </div>
           );
         })}
-        {areas.length === 0 && <div className="page-sub">{tr('nothingHere')}</div>}
+        {rows.length === 0 && <div className="page-sub">{tr('nothingHere')}</div>}
       </div>
     </>
   );

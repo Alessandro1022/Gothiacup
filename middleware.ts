@@ -19,7 +19,14 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
+  // Timeout-skydd: en sovande eller långsam databas ska inte släcka hela sajten
+  const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000));
+  const result = await Promise.race([supabase.auth.getUser(), timeout]);
+
+  // Inget svar i tid – släpp igenom, sidorna gör sin egen kontroll
+  if (result === null) return response;
+
+  const user = result.data.user;
   const path = request.nextUrl.pathname;
   const isPublic = path.startsWith('/login') || path.startsWith('/auth') || path.startsWith('/api');
 

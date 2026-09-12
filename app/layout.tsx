@@ -7,14 +7,21 @@ import './globals.css';
 export const metadata: Metadata = {
   title: `${tenant.event.name} · TournamentOps`,
   description: 'Drift- och personalsystem',
-  manifest: '/manifest.json'
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    title: tenant.event.name,
+    statusBarStyle: 'black-translucent'
+  }
 };
 
 export const viewport: Viewport = {
-  themeColor: tenant.theme.bg,
+  // Topbarens färg, så statusfältet smälter in i stället för att bli vitt
+  themeColor: tenant.theme.panel2,
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1
+  maximumScale: 1,
+  viewportFit: 'cover'
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

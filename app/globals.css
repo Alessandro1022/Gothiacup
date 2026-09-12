@@ -467,3 +467,4 @@ a.list-item:active, .list-item.clickable:active { transform: scale(.985); }
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
 }
+body::after { content: "CSS v3"; position: fixed; right: 6px; bottom: 60px; z-index: 999; background: #D64545; color: #fff; font-size: 10px; padding: 3px 7px; border-radius: 6px; }

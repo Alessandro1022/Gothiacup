@@ -510,3 +510,94 @@ a.card:active { transform: scale(.98); }
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
 }
+
+/* ================================================================
+   GOTHIA APP-LOOK
+   Färgade gradientbrickor, snabblänkar med pil och mjuk bakgrund –
+   samma visuella språk som den officiella turneringsappen.
+   Ligger sist och skriver över basen. Inga klassnamn ändrade.
+   ================================================================ */
+
+/* ---- Mjuk bakgrund med svaga fält ---- */
+body {
+  background:
+    radial-gradient(900px 500px at 110% -5%, rgba(255, 200, 69, .16), transparent 60%),
+    radial-gradient(800px 460px at -10% 8%, rgba(29, 111, 168, .14), transparent 62%),
+    var(--bg);
+  background-attachment: fixed;
+}
+
+/* ---- KPI-brickor i färg ---- */
+.cards { gap: 12px; }
+.cards > .card {
+  border: none; border-radius: 20px; padding: 18px 16px 16px;
+  color: #fff; min-height: 108px;
+  display: flex; flex-direction: column; justify-content: flex-end;
+  box-shadow: 0 6px 18px rgba(16, 33, 52, .13);
+  position: relative; overflow: hidden;
+}
+.cards > .card::before {
+  content: ''; position: absolute; right: -28px; top: -28px;
+  width: 96px; height: 96px; border-radius: 50%;
+  background: rgba(255, 255, 255, .13);
+}
+.cards > .card .kpi-num {
+  font-size: 34px; font-weight: 800; letter-spacing: -.035em;
+  color: #fff; order: 1;
+}
+.cards > .card .kpi-num.danger { color: #fff; }
+.cards > .card .kpi-lbl {
+  font-size: 13.5px; font-weight: 700; color: rgba(255, 255, 255, .93);
+  margin-top: 4px; order: 2;
+}
+
+/* Färgschema som roterar över brickorna */
+.cards > .card:nth-child(6n + 1) { background: linear-gradient(150deg, #1F6FA8, #16507C); }
+.cards > .card:nth-child(6n + 2) { background: linear-gradient(150deg, #F4B23C, #E08C1B); }
+.cards > .card:nth-child(6n + 3) { background: linear-gradient(150deg, #5FB98C, #33916A); }
+.cards > .card:nth-child(6n + 4) { background: linear-gradient(150deg, #2AA3B5, #157F92); }
+.cards > .card:nth-child(6n + 5) { background: linear-gradient(150deg, #2E5F92, #1C3F66); }
+.cards > .card:nth-child(6n + 6) { background: linear-gradient(150deg, #7A8FA8, #58708C); }
+
+/* Röd bricka när något är kritiskt */
+.cards > .card:has(.kpi-num.danger) { background: linear-gradient(150deg, #E05555, #B23A3A); }
+
+a.card:active { transform: scale(.97); }
+
+/* ---- Snabblänkar: vit lista med pil ---- */
+a.list-item, .link-card {
+  position: relative; padding-right: 44px;
+  border-radius: 18px; border-color: transparent;
+  box-shadow: 0 2px 10px rgba(16, 33, 52, .07);
+}
+a.list-item::after, .link-card::after {
+  content: ''; position: absolute; right: 18px; top: 50%;
+  width: 9px; height: 9px; margin-top: -5px;
+  border-right: 2.5px solid #A9B8C9; border-top: 2.5px solid #A9B8C9;
+  transform: rotate(45deg); border-radius: 1px;
+}
+a.list-item:active, .link-card:active { transform: scale(.98); }
+
+/* ---- Avsnittsrubriker i versaler ---- */
+.main h2 {
+  font-size: 12px; text-transform: uppercase; letter-spacing: .1em;
+  color: var(--muted); font-weight: 700;
+}
+
+/* ---- Sidhuvud ---- */
+.page-title { font-size: 26px; letter-spacing: -.03em; }
+.page-sub { font-size: 13.5px; }
+
+/* ---- Områdes- och skolkort ---- */
+.link-card .li-title { font-size: 16.5px; }
+.prog { height: 9px; }
+.prog > div { background: linear-gradient(90deg, #2AA3B5, #1F6FA8); }
+
+/* ---- Bottennav som i appen ---- */
+.bottombar { background: #fff; }
+.bottombar a.active::before { background: var(--primary); }
+
+@media (min-width: 901px) {
+  .cards > .card { min-height: 120px; }
+  .cards > .card .kpi-num { font-size: 36px; }
+}

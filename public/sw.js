@@ -1,5 +1,5 @@
 // Enkel service worker: cache-first för statiska filer, nätverk först för sidor.
-const CACHE = 'tops-v3';
+const CACHE = 'tops-v4';
 
 self.addEventListener('install', (e) => { self.skipWaiting(); });
 self.addEventListener('activate', (e) => {

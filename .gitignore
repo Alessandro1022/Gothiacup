@@ -1,0 +1,24 @@
+# Beroenden
+/node_modules
+/.pnp
+.pnp.js
+
+# Byggutdata
+/.next/
+/out/
+/build
+*.tsbuildinfo
+next-env.d.ts
+
+# Miljövariabler
+.env
+.env*.local
+
+# Loggar och systemfiler
+npm-debug.log*
+yarn-error.log*
+.DS_Store
+*.pem
+
+# Vercel
+.vercel

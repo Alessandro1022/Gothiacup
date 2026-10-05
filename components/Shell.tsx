@@ -5,11 +5,13 @@ import { usePathname } from 'next/navigation';
 import {
   Menu, LayoutDashboard, AlertTriangle, CheckSquare, LogOut,
   Map, School, Landmark, CalendarClock, Users, BarChart3,
-  Newspaper, MessageSquare, FileText, Siren, Settings2, Sparkles, History
+  Newspaper, MessageSquare, FileText, Siren, Settings2, Sparkles, History,
+  Layers, Building2
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { tenant } from '@/lib/tenant';
 import { useLang } from '@/components/LanguageProvider';
+import { useTenant } from '@/components/TenantProvider';
+import type { FeatureKey } from '@/lib/features';
 import { tierOf, type Role, ROLE_LABELS } from '@/lib/types';
 import { LANGS, type Lang } from '@/lib/i18n';
 
@@ -17,13 +19,13 @@ type Props = { role: Role; name: string; children: React.ReactNode };
 
 export default function Shell({ role, name, children }: Props) {
   const { lang, setLang, tr } = useLang();
+  const tn = useTenant();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [clock, setClock] = useState('--:--');
   const [openInc, setOpenInc] = useState<number | null>(null);
   const [staffPct, setStaffPct] = useState<number | null>(null);
   const [crisis, setCrisis] = useState<{ active: boolean; message: string | null }>({ active: false, message: null });
-  const [evName, setEvName] = useState<string | null>(null);
   const supabase = createClient();
   const tier = tierOf(role);
 
@@ -51,32 +53,18 @@ export default function Shell({ role, name, children }: Props) {
       const { data } = await supabase.from('crisis_state').select('active,message').eq('id', 1).single();
       if (data) setCrisis(data);
     };
-    const loadSettings = async () => {
-      const { data } = await supabase.from('event_settings').select('event_name,primary_color').eq('id', 1).single();
-      if (!data) return;
-      setEvName(data.event_name || null);
-      const root = document.documentElement;
-      if (data.primary_color && /^#[0-9a-fA-F]{6}$/.test(data.primary_color)) {
-        root.style.setProperty('--primary', data.primary_color);
-        root.style.setProperty('--primary-dark', data.primary_color);
-      } else {
-        root.style.removeProperty('--primary');
-        root.style.removeProperty('--primary-dark');
-      }
-    };
-    loadCounts(); loadCrisis(); loadSettings();
+    loadCounts(); loadCrisis();
     const ch = supabase
       .channel('shell-rt')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'incidents' }, loadCounts)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'shifts' }, loadCounts)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'crisis_state' }, loadCrisis)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'event_settings' }, loadSettings)
       .subscribe();
     return () => { supabase.removeChannel(ch); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const brandName = evName || tenant.event.name;
+  const brandName = tn.name;
 
   const nav = [
     {
@@ -98,9 +86,10 @@ export default function Shell({ role, name, children }: Props) {
     {
       label: tr('gArea'),
       items: [
-        { href: '/areas', label: tenant.labels.areas, Icon: Map, minTier: 3 },
-        { href: '/schools', label: tenant.labels.schools, Icon: School, minTier: 2 },
-        { href: '/arenas', label: tenant.labels.playingAreas, Icon: Landmark, minTier: 2 }
+        { href: '/areas', label: tn.labels.areas, Icon: Map, minTier: 3 },
+        { href: '/schools', label: tn.labels.schools, Icon: School, minTier: 2 },
+        { href: '/arenas', label: tn.labels.playingAreas, Icon: Landmark, minTier: 2 },
+        { href: '/map', label: 'Karta', Icon: Map, minTier: 2 }
       ]
     },
     {
@@ -117,7 +106,9 @@ export default function Shell({ role, name, children }: Props) {
         { href: '/staff', label: tr('staff'), Icon: Users, minTier: 4 },
         { href: '/history', label: tr('history'), Icon: History, minTier: 4 },
         { href: '/crisis', label: tr('crisis'), Icon: Siren, minTier: 5 },
-        { href: '/settings', label: tr('settings'), Icon: Settings2, minTier: 5 }
+        { href: '/settings', label: tr('settings'), Icon: Settings2, minTier: 5 },
+        { href: '/structure', label: 'Struktur', Icon: Building2, minTier: 5 },
+        { href: '/platform', label: 'Plattform', Icon: Layers, minTier: 6 }
       ]
     }
   ];
@@ -152,10 +143,10 @@ export default function Shell({ role, name, children }: Props) {
 
       <aside className={`sidebar ${open ? 'open' : ''}`} style={crisis.active ? { top: 40 } : undefined}>
         <div className="brand">
-          <div className="brand-badge">{tenant.event.logoText}</div>
+          <div className="brand-badge">{tn.logoText}</div>
           <div>
             <div className="brand-name">{brandName}</div>
-            <div className="brand-sub">TOURNAMENTOPS · {tenant.event.sport.toUpperCase()}</div>
+            <div className="brand-sub">TOURNAMENTOPS · {tn.sport.toUpperCase()}</div>
           </div>
         </div>
 
@@ -170,13 +161,15 @@ export default function Shell({ role, name, children }: Props) {
           </div>
           <div className="spine-item">
             <div className="spine-num">{clock}</div>
-            <div className="spine-lbl">{tenant.event.city}</div>
+            <div className="spine-lbl">{tn.city}</div>
           </div>
         </div>
 
         <nav className="nav">
           {nav.map((g) => {
-            const items = g.items.filter((i) => tier >= i.minTier);
+            const items = g.items.filter(
+              (i) => tier >= i.minTier && tn.has(i.href.slice(1) as FeatureKey)
+            );
             if (!items.length) return null;
             return (
               <div key={g.label}>

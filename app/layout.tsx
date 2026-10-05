@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { tenant } from '@/lib/tenant';
 import { LanguageProvider } from '@/components/LanguageProvider';
+import TenantProvider from '@/components/TenantProvider';
 import SwRegister from '@/components/SwRegister';
 import './globals.css';
 
@@ -37,7 +38,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="sv" style={vars}>
       <body>
-        <LanguageProvider>{children}</LanguageProvider>
+        <TenantProvider>
+          <LanguageProvider>{children}</LanguageProvider>
+        </TenantProvider>
         <SwRegister />
       </body>
     </html>

@@ -2,6 +2,9 @@
 // Läser aktiv turnering ur databasen och applicerar namn, färger och moduler
 // i realtid. Faller tillbaka på lib/tenant.ts om tabellen saknas.
 // event_settings läggs på sist som finjustering ovanpå turneringens tema.
+//
+// Viktigt: Supabase-klienten skapas INUTI effekten, aldrig under render.
+// Providern omsluter hela appen – kastar den under render blir allt vitt.
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { tenant as fallback } from '@/lib/tenant';
@@ -51,57 +54,81 @@ export function useTenant(): Ctx {
   return useContext(TenantCtx) ?? fallbackCtx();
 }
 
-const isHex = (v?: string | null) => !!v && /^#[0-9a-fA-F]{6}$/.test(v);
+// Typvakt: gör att TypeScript vet att värdet är en string efter kontrollen
+const isHex = (v?: string | null): v is string => !!v && /^#[0-9a-fA-F]{6}$/.test(v);
 
 export default function TenantProvider({ children }: { children: React.ReactNode }) {
-  const supabase = createClient();
   const [row, setRow] = useState<TenantRow | null>(null);
-
-  const load = useCallback(async () => {
-    const [{ data: t }, { data: s }] = await Promise.all([
-      supabase.from('tenants').select('*').eq('active', true).limit(1).maybeSingle(),
-      supabase.from('event_settings').select('event_name,primary_color').eq('id', 1).maybeSingle()
-    ]);
-
-    const active = (t ?? null) as TenantRow | null;
-    setRow(
-      active && s?.event_name
-        ? { ...active, name: s.event_name }
-        : active
-    );
-
-    // Färger: turneringens tema först, event_settings som override
-    const root = document.documentElement;
-    const set = (k: string, v?: string | null) => {
-      if (isHex(v)) root.style.setProperty(k, v as string);
-      else root.style.removeProperty(k);
-    };
-    const c = active?.colors ?? {};
-    set('--primary', c.primary);
-    set('--primary-dark', c.primaryDark);
-    set('--panel-2', c.panel2);
-    set('--accent', c.accent);
-    set('--bg', c.bg);
-
-    if (isHex(s?.primary_color)) {
-      root.style.setProperty('--primary', s!.primary_color as string);
-      root.style.setProperty('--primary-dark', s!.primary_color as string);
-    }
-
-    const title = s?.event_name || active?.name;
-    if (title) document.title = `${title} · TournamentOps`;
-  }, [supabase]);
+  const [tick, setTick] = useState(0);
+  const reload = useCallback(() => setTick((t) => t + 1), []);
 
   useEffect(() => {
+    let cancelled = false;
+
+    // Saknas miljövariabler ska appen fortfarande starta, bara utan tema
+    let supabase: ReturnType<typeof createClient>;
+    try {
+      supabase = createClient();
+    } catch {
+      return;
+    }
+
+    // Får aldrig kasta. Saknas tabellerna gäller lib/tenant.ts tyst.
+    const load = async () => {
+      try {
+        const [t, s] = await Promise.all([
+          supabase.from('tenants').select('*').eq('active', true).limit(1).maybeSingle()
+            .then((r) => r.data, () => null),
+          supabase.from('event_settings').select('event_name,primary_color').eq('id', 1).maybeSingle()
+            .then((r) => r.data, () => null)
+        ]);
+        if (cancelled) return;
+
+        const active = (t ?? null) as TenantRow | null;
+        setRow(active && s?.event_name ? { ...active, name: s.event_name } : active);
+
+        // Färger: turneringens tema först, event_settings som override
+        const root = document.documentElement;
+        const set = (k: string, v?: string | null) => {
+          if (isHex(v)) root.style.setProperty(k, v);
+          else root.style.removeProperty(k);
+        };
+        const c = active?.colors ?? {};
+        set('--primary', c.primary);
+        set('--primary-dark', c.primaryDark);
+        set('--panel-2', c.panel2);
+        set('--accent', c.accent);
+        set('--bg', c.bg);
+
+        const override = s?.primary_color ?? null;
+        if (isHex(override)) {
+          root.style.setProperty('--primary', override);
+          root.style.setProperty('--primary-dark', override);
+        }
+
+        const title = s?.event_name || active?.name;
+        if (title) document.title = `${title} · TournamentOps`;
+      } catch {
+        // Tyst fallback – appen ska fungera utan tenants-tabellen
+      }
+    };
+
     load();
-    const ch = supabase
-      .channel('tenant-rt')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tenants' }, load)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'event_settings' }, load)
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [load]);
+
+    try {
+      const ch = supabase
+        .channel('tenant-rt')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'tenants' }, load)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'event_settings' }, load)
+        .subscribe();
+      return () => {
+        cancelled = true;
+        try { supabase.removeChannel(ch); } catch { /* ignorera */ }
+      };
+    } catch {
+      return () => { cancelled = true; };
+    }
+  }, [tick]);
 
   const base = fallbackCtx();
   const value: Ctx = {
@@ -122,7 +149,7 @@ export default function TenantProvider({ children }: { children: React.ReactNode
       areas: row?.labels?.areas || base.labels.areas
     },
     has: (f) => (row ? row.features?.[f] !== false : true),
-    reload: load
+    reload
   };
 
   return <TenantCtx.Provider value={value}>{children}</TenantCtx.Provider>;

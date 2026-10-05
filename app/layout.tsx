@@ -9,6 +9,14 @@ export const metadata: Metadata = {
   title: `${tenant.event.name} · TournamentOps`,
   description: 'Drift- och personalsystem',
   manifest: '/manifest.json',
+  icons: {
+    icon: [
+      { url: '/favicon-32.png', sizes: '32x32', type: 'image/png' },
+      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icon-512.png', sizes: '512x512', type: 'image/png' }
+    ],
+    apple: [{ url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }]
+  },
   appleWebApp: {
     capable: true,
     title: tenant.event.name,
@@ -35,8 +43,29 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     '--accent': t.accent, '--danger': t.danger, '--ok': t.ok
   } as React.CSSProperties;
 
+  // Räddningslucka: körs före alla bundles, så den fungerar även när en gammal
+  // service worker har cachat trasiga JS-chunkar och appen bara är vit.
+  // Avregistrerar alla service workers, tömmer alla cacher och laddar om –
+  // exakt en gång per enhet (nyckeln nedan bumpas om det behövs igen).
+  const swReset = `(function(){try{
+if(!('serviceWorker' in navigator))return;
+var K='tops-sw-reset-5';
+if(localStorage.getItem(K))return;
+localStorage.setItem(K,'1');
+navigator.serviceWorker.getRegistrations().then(function(rs){
+var had=rs.length>0;
+return Promise.all(rs.map(function(r){return r.unregister()})).then(function(){
+return window.caches?caches.keys().then(function(ks){
+return Promise.all(ks.map(function(k){return caches.delete(k)}))}):null
+}).then(function(){if(had)location.reload()})
+}).catch(function(){})
+}catch(e){}})();`;
+
   return (
     <html lang="sv" style={vars}>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: swReset }} />
+      </head>
       <body>
         <TenantProvider>
           <LanguageProvider>{children}</LanguageProvider>

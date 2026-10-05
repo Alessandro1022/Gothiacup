@@ -142,8 +142,8 @@ begin
   update public.profiles p
      set tenant_id = t_id,
          full_name = coalesce(nullif(p.full_name, ''), u.raw_user_meta_data->>'full_name'),
-         role = (array['volunteer','school_staff','arena_staff','area_manager','coordinator'])[
-                  1 + (abs(hashtext(p.email)) % 5)
+         role = (array['volunteer','school_staff','arena_staff','area_housing','area_arenas','coordinator'])[
+                  1 + (abs(hashtext(p.email)) % 6)
                 ]::app_role
     from auth.users u
    where u.id = p.id
@@ -165,7 +165,7 @@ begin
     now()::date + ((n % 5) || ' days')::interval + ((8 + (n % 10)) || ' hours')::interval,
     'scheduled',
     -- Riskfördelning som speglar verkligheten: de allra flesta gröna
-    (case when n % 23 = 0 then 'red' when n % 7 = 0 then 'yellow' else 'green' end),
+    (case when n % 23 = 0 then 'red' when n % 7 = 0 then 'yellow' else 'green' end)::risk_level,
     t_id
   from generate_series(1, n_matches) n
   join lateral (

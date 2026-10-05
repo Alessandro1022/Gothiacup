@@ -72,6 +72,11 @@ create trigger trg_protect_tenant before update on public.profiles
 
 -- ============ 5. TENANT_ID PÅ ALLA TABELLER ============
 -- Loop i stället för 30 handskrivna block: ingen tabell kan glömmas bort.
+--
+-- Triggrarna stängs av per tabell under backfillen. Annars utlöser UPDATE:n
+-- audit-triggern, som skriver en rad i audit_log med tenant_id = my_tenant().
+-- I SQL Editor finns ingen inloggad användare, så det blir null – och
+-- audit_log har redan hunnit få NOT NULL tidigare i samma loop.
 do $$
 declare
   t text;
@@ -86,14 +91,19 @@ declare
   ];
 begin
   select id into gothia from public.tenants where slug = 'gothia-cup';
+  if gothia is null then
+    raise exception 'Hittar ingen turnering med slug gothia-cup. Kör schema_part6_tenants.sql först.';
+  end if;
 
   foreach t in array tables loop
     -- Kolumnen
     execute format(
       'alter table public.%I add column if not exists tenant_id uuid references public.tenants(id) on delete cascade', t);
 
-    -- All befintlig data tillhör Gothia Cup
+    -- All befintlig data tillhör Gothia Cup. Triggrar av under tiden.
+    execute format('alter table public.%I disable trigger user', t);
     execute format('update public.%I set tenant_id = %L where tenant_id is null', t, gothia);
+    execute format('alter table public.%I enable trigger user', t);
 
     -- Nya rader ärver den inloggades turnering automatiskt
     execute format('alter table public.%I alter column tenant_id set default public.my_tenant()', t);
@@ -113,6 +123,30 @@ begin
         with check (tenant_id = public.my_tenant())
     $p$, t);
   end loop;
+end $$;
+
+-- ============ 5a. AUDIT-LOGGEN FÅR RÄTT TURNERING ============
+-- Tog tidigare tenant_id från kolumndefaulten, alltså den inloggade. Fel
+-- när cron-jobbet skriver med service-nyckeln: då finns ingen inloggad.
+-- Hämtas nu ur raden som ändrades.
+create or replace function public.audit_trigger() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare row_tenant uuid;
+begin
+  begin
+    row_tenant := (case when tg_op = 'DELETE' then to_jsonb(old) else to_jsonb(new) end
+                   ->> 'tenant_id')::uuid;
+  exception when others then
+    row_tenant := null;
+  end;
+
+  insert into public.audit_log (table_name, record_id, action, actor, changes, tenant_id)
+  values (tg_table_name,
+          coalesce((case when tg_op = 'DELETE' then old.id else new.id end)::text, ''),
+          tg_op, auth.uid(),
+          case when tg_op = 'DELETE' then to_jsonb(old) else to_jsonb(new) end,
+          coalesce(row_tenant, public.my_tenant()));
+  return coalesce(new, old);
 end $$;
 
 -- ============ 5b. PERSONALLISTAN ============
@@ -138,17 +172,29 @@ update public.crisis_state
    set tenant_id = (select id from public.tenants where slug = 'gothia-cup')
  where tenant_id is null;
 
--- Släpp singleton-spärren och nyckla om på turnering
-alter table public.crisis_state drop constraint if exists crisis_state_id_check;
-alter table public.crisis_state alter column id drop not null;
+-- Släpp singleton-konstruktionen och nyckla om på turnering.
+-- id kan inte bara få NOT NULL borttaget – den är primärnyckel – så
+-- kolumnen tas bort helt och tenant_id blir nyckeln i stället.
+-- Att droppa id tar samtidigt bort check-villkoret (id = 1).
 alter table public.crisis_state alter column tenant_id set not null;
-alter table public.crisis_state alter column tenant_id set default public.my_tenant();
 
 do $$
 begin
-  alter table public.crisis_state add constraint crisis_state_tenant_unique unique (tenant_id);
-exception when duplicate_table or duplicate_object then null;
+  if exists (select 1 from information_schema.columns
+             where table_schema = 'public' and table_name = 'crisis_state'
+               and column_name = 'id') then
+    -- Behåll bara en rad per turnering innan nyckeln sätts
+    delete from public.crisis_state a
+      using public.crisis_state b
+     where a.tenant_id = b.tenant_id and a.id > b.id;
+
+    alter table public.crisis_state drop constraint if exists crisis_state_pkey;
+    alter table public.crisis_state drop column id;
+    alter table public.crisis_state add primary key (tenant_id);
+  end if;
 end $$;
+
+alter table public.crisis_state alter column tenant_id set default public.my_tenant();
 
 -- En krisrad per turnering
 insert into public.crisis_state (tenant_id, active)

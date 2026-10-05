@@ -1,47 +1,30 @@
 'use client';
 import { useEffect } from 'react';
 
-// Registrerar service worker och ser till att nya versioner tas i bruk direkt.
-// Utan det här kan en hemskärmsapp sitta kvar på en gammal version i dagar.
+// Registrerar INGEN service worker längre – den avvecklades för att en trasig
+// version kan låsa hela appen utan att gå att laga från koden.
+// I stället städas allt som finns kvar från tidigare versioner bort.
 export default function SwRegister() {
   useEffect(() => {
-    if (!('serviceWorker' in navigator)) return;
-
-    let reloading = false;
-
-    const onControllerChange = () => {
-      // Ny service worker tog över – ladda om en gång så sidan matchar den
-      if (reloading) return;
-      reloading = true;
-      window.location.reload();
+    const cleanup = async () => {
+      try {
+        if ('serviceWorker' in navigator) {
+          const rs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(rs.map((r) => r.unregister()));
+        }
+      } catch {
+        /* ignorera */
+      }
+      try {
+        if (typeof caches !== 'undefined') {
+          const ks = await caches.keys();
+          await Promise.all(ks.map((k) => caches.delete(k)));
+        }
+      } catch {
+        /* ignorera */
+      }
     };
-
-    navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
-
-    navigator.serviceWorker
-      .register('/sw.js')
-      .then((reg) => {
-        // Leta efter ny version vid varje start och sedan en gång i timmen
-        reg.update().catch(() => {});
-        const id = setInterval(() => reg.update().catch(() => {}), 3600000);
-
-        reg.addEventListener('updatefound', () => {
-          const sw = reg.installing;
-          if (!sw) return;
-          sw.addEventListener('statechange', () => {
-            if (sw.state === 'installed' && navigator.serviceWorker.controller) {
-              sw.postMessage('skip-waiting');
-            }
-          });
-        });
-
-        return () => clearInterval(id);
-      })
-      .catch(() => {});
-
-    return () => {
-      navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
-    };
+    cleanup();
   }, []);
 
   return null;

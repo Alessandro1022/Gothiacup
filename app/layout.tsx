@@ -44,14 +44,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   } as React.CSSProperties;
 
   // Räddningslucka: körs före alla bundles, så den fungerar även när en gammal
-  // service worker har cachat trasiga JS-chunkar och appen bara är vit.
-  // Avregistrerar alla service workers, tömmer alla cacher och laddar om –
-  // exakt en gång per enhet (nyckeln nedan bumpas om det behövs igen).
+  // service worker har låst sidladdningen. Avregistrerar allt och tömmer
+  // cachen. Laddar om bara när något faktiskt togs bort, så den kan inte
+  // loopa – efter första körningen finns inget kvar att avregistrera.
   const swReset = `(function(){try{
 if(!('serviceWorker' in navigator))return;
-var K='tops-sw-reset-5';
-if(localStorage.getItem(K))return;
-localStorage.setItem(K,'1');
 navigator.serviceWorker.getRegistrations().then(function(rs){
 var had=rs.length>0;
 return Promise.all(rs.map(function(r){return r.unregister()})).then(function(){

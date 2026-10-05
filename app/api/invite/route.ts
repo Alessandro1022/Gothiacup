@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createSupabase } from '@supabase/supabase-js';
 import { tierOf, type Role } from '@/lib/types';
+import { supabaseUrl } from '@/lib/supabase/env';
 
 export async function POST(req: Request) {
   const supabase = await createClient();
@@ -18,7 +19,7 @@ export async function POST(req: Request) {
   if (!email || !/.+@.+\..+/.test(email)) return NextResponse.json({ error: 'Ogiltig e-post' }, { status: 400 });
 
   const service = createSupabase(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    supabaseUrl(),
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { persistSession: false } }
   );

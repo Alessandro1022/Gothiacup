@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { assertSupabaseEnv } from '@/lib/supabase/env';
 import { tenant } from '@/lib/tenant';
 import { useLang } from '@/components/LanguageProvider';
 
@@ -14,25 +15,44 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
+  // Fel i miljövariablerna ger annars bara "Load failed" utan förklaring
+  const envError = assertSupabaseEnv();
+
+  // "Load failed" är Safaris text för ett anrop som aldrig nådde fram.
+  // Nästan alltid fel adress till Supabase, inte fel lösenord.
+  const readable = (m: string) =>
+    /load failed|failed to fetch|networkerror/i.test(m)
+      ? 'Ingen kontakt med servern. Kontrollera nätverket – kvarstår det är adressen till databasen felaktig.'
+      : m;
 
   const signIn = async () => {
     setBusy(true); setError(''); setMsg('');
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setBusy(false);
-    if (error) { setError(error.message); return; }
-    router.push('/dashboard');
-    router.refresh();
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      setBusy(false);
+      if (error) { setError(readable(error.message)); return; }
+      router.push('/dashboard');
+      router.refresh();
+    } catch (e) {
+      setBusy(false);
+      setError(readable(e instanceof Error ? e.message : 'Okänt fel'));
+    }
   };
 
   const magic = async () => {
     setBusy(true); setError(''); setMsg('');
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: `${location.origin}/auth/callback` }
-    });
-    setBusy(false);
-    if (error) { setError(error.message); return; }
-    setMsg(tr('magicSent'));
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: { emailRedirectTo: `${location.origin}/auth/callback` }
+      });
+      setBusy(false);
+      if (error) { setError(readable(error.message)); return; }
+      setMsg(tr('magicSent'));
+    } catch (e) {
+      setBusy(false);
+      setError(readable(e instanceof Error ? e.message : 'Okänt fel'));
+    }
   };
 
   return (
@@ -58,6 +78,7 @@ export default function LoginPage() {
           <button className="btn" disabled={busy || !email} onClick={magic}>{tr('magicLink')}</button>
         </div>
 
+        {envError && <div className="form-error">Konfigurationsfel: {envError}</div>}
         {error && <div className="form-error">{error}</div>}
         {msg && <div className="ok-msg">{msg}</div>}
       </div>

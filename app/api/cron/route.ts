@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server';
 import { createClient as createSupabase } from '@supabase/supabase-js';
 import { generateReport } from '@/lib/ai';
+import { supabaseUrl } from '@/lib/supabase/env';
 
 export const maxDuration = 300;
 
@@ -13,7 +14,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   const db = createSupabase(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    supabaseUrl(),
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { persistSession: false } }
   );

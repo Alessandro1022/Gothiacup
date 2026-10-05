@@ -87,18 +87,22 @@ export default function TenantProvider({ children }: { children: React.ReactNode
         const active = (t ?? null) as TenantRow | null;
         setRow(active && s?.event_name ? { ...active, name: s.event_name } : active);
 
-        // Färger: turneringens tema först, event_settings som override
+        // Färger: turneringens tema först, event_settings som override.
+        // Saknas ett värde återställs grundtemat – aldrig removeProperty,
+        // för variablerna sattes av layout.tsx som inline-stil på <html>.
+        // Tar man bort dem blir t.ex. --primary odefinierad och knapparna
+        // osynliga: vit text på vit bakgrund.
         const root = document.documentElement;
-        const set = (k: string, v?: string | null) => {
-          if (isHex(v)) root.style.setProperty(k, v);
-          else root.style.removeProperty(k);
+        const bt = fallback.theme;
+        const set = (k: string, v: string | undefined, def: string) => {
+          root.style.setProperty(k, isHex(v) ? v : def);
         };
         const c = active?.colors ?? {};
-        set('--primary', c.primary);
-        set('--primary-dark', c.primaryDark);
-        set('--panel-2', c.panel2);
-        set('--accent', c.accent);
-        set('--bg', c.bg);
+        set('--primary', c.primary, bt.primary);
+        set('--primary-dark', c.primaryDark, bt.primaryDark);
+        set('--panel-2', c.panel2, bt.panel2);
+        set('--accent', c.accent, bt.accent);
+        set('--bg', c.bg, bt.bg);
 
         const override = s?.primary_color ?? null;
         if (isHex(override)) {

@@ -3,16 +3,19 @@ import { useCallback, useEffect, useState } from 'react';
 import { Siren } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useLang } from '@/components/LanguageProvider';
+import { useTenant } from '@/components/TenantProvider';
 
 export default function CrisisClient({ userId }: { userId: string }) {
   const { tr } = useLang();
+  const tn = useTenant();
   const supabase = createClient();
   const [active, setActive] = useState(false);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    const { data } = await supabase.from('crisis_state').select('active,message').eq('id', 1).single();
+    // En krisrad per turnering; RLS ger bara den egna.
+    const { data } = await supabase.from('crisis_state').select('active,message').maybeSingle();
     if (data) { setActive(data.active); setMessage(data.message ?? ''); }
     setLoading(false);
   }, [supabase]);
@@ -20,12 +23,14 @@ export default function CrisisClient({ userId }: { userId: string }) {
   useEffect(() => { load(); }, [load]);
 
   const toggle = async () => {
+    const tenantId = tn.active?.id;
+    if (!tenantId) return;
     await supabase.from('crisis_state').update({
       active: !active,
       message: message || null,
       activated_by: userId,
       activated_at: !active ? new Date().toISOString() : null
-    }).eq('id', 1);
+    }).eq('tenant_id', tenantId);
     load();
   };
 

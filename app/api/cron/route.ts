@@ -1,9 +1,13 @@
 // Körs av Vercel Cron 05:00 och 19:00 UTC (07/21 svensk sommartid).
 // Genererar morgon-/kvällsrapporter: översikt, skolor, säkerhetsrutter,
 // samt matchrapport när det finns gula/röda matcher.
+//
+// Kör med service-nyckeln, som kringgår RLS. Därför loopas turneringarna
+// explicit och varje fråga filtreras på tenant_id – utan det hade alla
+// turneringars data hamnat i samma rapport.
 import { NextResponse } from 'next/server';
 import { createClient as createSupabase } from '@supabase/supabase-js';
-import { generateReport } from '@/lib/ai';
+import { generateReport, type TenantInfo } from '@/lib/ai';
 import { supabaseUrl } from '@/lib/supabase/env';
 
 export const maxDuration = 300;
@@ -22,22 +26,46 @@ export async function GET(req: Request) {
   const hour = new Date().getUTCHours();
   const slot = hour < 12 ? 'morning' : 'evening';
 
-  const results: Record<string, string> = {};
-  for (const kind of ['overview', 'schools', 'security'] as const) {
-    try { await generateReport(db, kind, slot); results[kind] = 'ok'; }
-    catch (e) { results[kind] = e instanceof Error ? e.message : 'fel'; }
-  }
-  // Matchrapport endast när flaggade matcher finns idag
-  try {
-    const t0 = new Date(); t0.setHours(0, 0, 0, 0);
-    const t1 = new Date(); t1.setHours(23, 59, 59, 999);
-    const { count } = await db.from('arena_matches')
-      .select('id', { count: 'exact', head: true })
-      .neq('risk_level', 'green').neq('status', 'cancelled')
-      .gte('starts_at', t0.toISOString()).lte('starts_at', t1.toISOString());
-    if ((count ?? 0) > 0) { await generateReport(db, 'matches', slot); results.matches = 'ok'; }
-    else results.matches = 'inga flaggade';
-  } catch (e) { results.matches = e instanceof Error ? e.message : 'fel'; }
+  // Bara turneringar som pågår – ingen vits att skriva rapport för en
+  // turnering som ligger i malpåse till nästa år.
+  const { data: tenants, error: tErr } = await db
+    .from('tenants').select('id,name,sport,city,labels').eq('active', true);
 
-  return NextResponse.json({ slot, results });
+  if (tErr) return NextResponse.json({ error: tErr.message }, { status: 500 });
+  if (!tenants?.length) return NextResponse.json({ slot, note: 'inga pågående turneringar' });
+
+  const out: Record<string, Record<string, string>> = {};
+
+  for (const row of tenants) {
+    const tenant: TenantInfo = {
+      id: row.id,
+      name: row.name,
+      sport: row.sport,
+      city: row.city,
+      playingAreas: (row.labels as { playingAreas?: string } | null)?.playingAreas
+    };
+    const results: Record<string, string> = {};
+
+    for (const kind of ['overview', 'schools', 'security'] as const) {
+      try { await generateReport(db, kind, slot, tenant); results[kind] = 'ok'; }
+      catch (e) { results[kind] = e instanceof Error ? e.message : 'fel'; }
+    }
+
+    // Matchrapport endast när flaggade matcher finns idag
+    try {
+      const t0 = new Date(); t0.setHours(0, 0, 0, 0);
+      const t1 = new Date(); t1.setHours(23, 59, 59, 999);
+      const { count } = await db.from('arena_matches')
+        .select('id', { count: 'exact', head: true })
+        .eq('tenant_id', tenant.id)
+        .neq('risk_level', 'green').neq('status', 'cancelled')
+        .gte('starts_at', t0.toISOString()).lte('starts_at', t1.toISOString());
+      if ((count ?? 0) > 0) { await generateReport(db, 'matches', slot, tenant); results.matches = 'ok'; }
+      else results.matches = 'inga flaggade';
+    } catch (e) { results.matches = e instanceof Error ? e.message : 'fel'; }
+
+    out[row.name] = results;
+  }
+
+  return NextResponse.json({ slot, tenants: out });
 }

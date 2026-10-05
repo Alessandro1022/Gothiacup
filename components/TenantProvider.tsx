@@ -23,6 +23,7 @@ type Ctx = {
     school: string; schools: string; area: string; areas: string;
   };
   has: (f: FeatureKey) => boolean;
+  isOwner: boolean;
   reload: () => void;
 };
 
@@ -44,6 +45,7 @@ const fallbackCtx = (): Ctx => ({
     areas: fallback.labels.areas
   },
   has: () => true,
+  isOwner: false,
   reload: () => {}
 });
 
@@ -59,6 +61,7 @@ const isHex = (v?: string | null): v is string => !!v && /^#[0-9a-fA-F]{6}$/.tes
 
 export default function TenantProvider({ children }: { children: React.ReactNode }) {
   const [row, setRow] = useState<TenantRow | null>(null);
+  const [isOwner, setIsOwner] = useState(false);
   const [tick, setTick] = useState(0);
   const reload = useCallback(() => setTick((t) => t + 1), []);
 
@@ -76,22 +79,32 @@ export default function TenantProvider({ children }: { children: React.ReactNode
     // Får aldrig kasta. Saknas tabellerna gäller lib/tenant.ts tyst.
     const load = async () => {
       try {
-        const [t, s] = await Promise.all([
-          supabase.from('tenants').select('*').eq('active', true).limit(1).maybeSingle()
-            .then((r) => r.data, () => null),
-          supabase.from('event_settings').select('event_name,primary_color').eq('id', 1).maybeSingle()
-            .then((r) => r.data, () => null)
-        ]);
+        // my_tenant_row() ger den inloggades EGEN turnering. En vanlig
+        // select mot tenants duger inte: för plattformsägaren returnerar
+        // den alla turneringar, och "första raden" vore fel svar.
+        const { data } = await supabase
+          .rpc('my_tenant_row')
+          .maybeSingle()
+          .then((r) => r, () => ({ data: null }));
         if (cancelled) return;
 
-        const active = (t ?? null) as TenantRow | null;
-        setRow(active && s?.event_name ? { ...active, name: s.event_name } : active);
+        const active = (data ?? null) as TenantRow | null;
+        setRow(active);
 
-        // Färger: turneringens tema först, event_settings som override.
-        // Saknas ett värde återställs grundtemat – aldrig removeProperty,
-        // för variablerna sattes av layout.tsx som inline-stil på <html>.
-        // Tar man bort dem blir t.ex. --primary odefinierad och knapparna
-        // osynliga: vit text på vit bakgrund.
+        // Ägarflaggan styr om turneringsväxlaren och Plattform visas.
+        // Egna profilraden går alltid att läsa, även före tenant_id satts.
+        const { data: u } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
+        if (u?.user) {
+          const { data: p } = await supabase
+            .from('profiles').select('platform_owner').eq('id', u.user.id).maybeSingle()
+            .then((r) => r, () => ({ data: null }));
+          if (!cancelled) setIsOwner(!!p?.platform_owner);
+        }
+
+        // Färger från turneringens tema. Saknas ett värde återställs
+        // grundtemat – aldrig removeProperty, för variablerna sattes av
+        // layout.tsx som inline-stil på <html>. Tar man bort dem blir
+        // --primary odefinierad och knapparna osynliga: vit text på vitt.
         const root = document.documentElement;
         const bt = fallback.theme;
         const set = (k: string, v: string | undefined, def: string) => {
@@ -104,14 +117,7 @@ export default function TenantProvider({ children }: { children: React.ReactNode
         set('--accent', c.accent, bt.accent);
         set('--bg', c.bg, bt.bg);
 
-        const override = s?.primary_color ?? null;
-        if (isHex(override)) {
-          root.style.setProperty('--primary', override);
-          root.style.setProperty('--primary-dark', override);
-        }
-
-        const title = s?.event_name || active?.name;
-        if (title) document.title = `${title} · TournamentOps`;
+        if (active?.name) document.title = `${active.name} · TournamentOps`;
       } catch {
         // Tyst fallback – appen ska fungera utan tenants-tabellen
       }
@@ -123,7 +129,6 @@ export default function TenantProvider({ children }: { children: React.ReactNode
       const ch = supabase
         .channel('tenant-rt')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'tenants' }, load)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'event_settings' }, load)
         .subscribe();
       return () => {
         cancelled = true;
@@ -153,6 +158,7 @@ export default function TenantProvider({ children }: { children: React.ReactNode
       areas: row?.labels?.areas || base.labels.areas
     },
     has: (f) => (row ? row.features?.[f] !== false : true),
+    isOwner,
     reload
   };
 

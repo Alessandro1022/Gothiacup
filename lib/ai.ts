@@ -26,7 +26,7 @@ export async function callGemini(prompt: string): Promise<string> {
 }
 
 // ---------- Lägesbild ----------
-export async function gatherContext(db: SupabaseClient) {
+export async function gatherContext(db: SupabaseClient, tenantId: string) {
   const now = new Date();
   const dayAgo = new Date(Date.now() - 24 * 36e5).toISOString();
   const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
@@ -34,21 +34,21 @@ export async function gatherContext(db: SupabaseClient) {
 
   const [areas, schools, arenas, incidents, incidents24, tasksOpen, teams, rooms,
     issuesOpen, rounds24, matchesToday, shiftsNowAll, swapsPending, crowdLatest] = await Promise.all([
-    db.from('areas').select('id,name'),
-    db.from('schools').select('id,name,capacity,area_id'),
-    db.from('arenas').select('id,name,area_id'),
-    db.from('incidents').select('id,title,severity,status,location_type,location_id,created_at').neq('status', 'resolved'),
-    db.from('incidents').select('id,title,severity,status,location_type,location_id,created_at').gte('created_at', dayAgo),
-    db.from('tasks').select('id', { count: 'exact', head: true }).neq('status', 'done'),
-    db.from('team_assignments').select('school_id,group_size,status,team_name'),
-    db.from('classrooms').select('id,school_id,capacity'),
-    db.from('room_issues').select('id,school_id,title,status,created_at').neq('status', 'resolved'),
-    db.from('night_rounds').select('school_id,all_ok,notes,performed_at').gte('performed_at', dayAgo),
-    db.from('arena_matches').select('id,arena_id,surface_label,home_team,away_team,category,starts_at,status,risk_level,risk_note')
+    db.from('areas').select('id,name').eq('tenant_id', tenantId),
+    db.from('schools').select('id,name,capacity,area_id').eq('tenant_id', tenantId),
+    db.from('arenas').select('id,name,area_id').eq('tenant_id', tenantId),
+    db.from('incidents').select('id,title,severity,status,location_type,location_id,created_at').eq('tenant_id', tenantId).neq('status', 'resolved'),
+    db.from('incidents').select('id,title,severity,status,location_type,location_id,created_at').eq('tenant_id', tenantId).gte('created_at', dayAgo),
+    db.from('tasks').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).neq('status', 'done'),
+    db.from('team_assignments').select('school_id,group_size,status,team_name').eq('tenant_id', tenantId),
+    db.from('classrooms').select('id,school_id,capacity').eq('tenant_id', tenantId),
+    db.from('room_issues').select('id,school_id,title,status,created_at').eq('tenant_id', tenantId).neq('status', 'resolved'),
+    db.from('night_rounds').select('school_id,all_ok,notes,performed_at').eq('tenant_id', tenantId).gte('performed_at', dayAgo),
+    db.from('arena_matches').select('id,arena_id,surface_label,home_team,away_team,category,starts_at,status,risk_level,risk_note').eq('tenant_id', tenantId)
       .gte('starts_at', todayStart.toISOString()).lte('starts_at', todayEnd.toISOString()).neq('status', 'cancelled'),
-    db.from('shifts').select('id,status').lte('starts_at', now.toISOString()).gte('ends_at', now.toISOString()),
-    db.from('shift_swaps').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
-    db.from('crowd_counts').select('arena_id,count,created_at').order('created_at', { ascending: false }).limit(20)
+    db.from('shifts').select('id,status').eq('tenant_id', tenantId).lte('starts_at', now.toISOString()).gte('ends_at', now.toISOString()),
+    db.from('shift_swaps').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('status', 'pending'),
+    db.from('crowd_counts').select('arena_id,count,created_at').eq('tenant_id', tenantId).order('created_at', { ascending: false }).limit(20)
   ]);
 
   const schoolList = (schools.data ?? []).map((s) => {
@@ -105,8 +105,8 @@ export async function gatherContext(db: SupabaseClient) {
 // balansera mellan aktiva bilar. AI:n skriver briefingen ovanpå.
 export type Stop = { school_id: string; name: string; score: number; reasons: string[] };
 
-export async function buildRoutes(db: SupabaseClient, slot: string) {
-  const ctx = await gatherContext(db);
+export async function buildRoutes(db: SupabaseClient, slot: string, tenantId: string) {
+  const ctx = await gatherContext(db, tenantId);
   const today = ctx.matcherIdag;
 
   const stops: (Stop & { area_id: string | null })[] = ctx.skolor.map((s) => {
@@ -125,7 +125,7 @@ export async function buildRoutes(db: SupabaseClient, slot: string) {
     return { school_id: s.id, name: s.name, score, reasons, area_id: s.area_id };
   });
 
-  const { data: cars } = await db.from('security_cars').select('id,label').eq('active', true).order('label');
+  const { data: cars } = await db.from('security_cars').select('id,label').eq('tenant_id', tenantId).eq('active', true).order('label');
   const carList = cars ?? [];
   if (!carList.length) return { cars: [], ctx };
 
@@ -150,7 +150,7 @@ export async function buildRoutes(db: SupabaseClient, slot: string) {
   // Spara
   for (let i = 0; i < carList.length; i++) {
     await db.from('car_routes').upsert(
-      { car_id: carList[i].id, slot, stops: assigned[i] },
+      { car_id: carList[i].id, slot, stops: assigned[i], tenant_id: tenantId },
       { onConflict: 'car_id,route_date,slot' }
     );
   }
@@ -158,10 +158,39 @@ export async function buildRoutes(db: SupabaseClient, slot: string) {
 }
 
 // ---------- Rapporter ----------
-const BASE = `Du är AI-driftassistenten för Gothia Cup – världens största internationella ungdomsturnering i fotboll, med tusentals lag, tiotusentals deltagare, matcher över hela Göteborg och ett helt driftteam (ledning, områdesansvariga, skolvärdar, planvärdar, matchdelegater och säkerhetsgrupp) som håller ihop allt.
-Skriv på svenska. Var konkret, kort och handlingsorienterad – punktlistor framför prosa. Hitta ALDRIG på data; använd endast lägesbilden nedan. Riskflaggor: grön = planvärd + domare räcker, gul = matchdelegat kopplas in, röd = säkerhetsgruppen kopplas in.`;
+// Vilken turnering rapporten gäller. Promptet får ALDRIG hårdkoda Gothia Cup:
+// innebandychefens morgonrapport ska inte beskriva hans turnering som
+// världens största fotbollsturnering.
+export type TenantInfo = {
+  id: string;
+  name: string;
+  sport?: string;
+  city?: string;
+  playingAreas?: string;
+};
 
-export function reportPrompt(kind: string, slot: string, ctx: unknown, routes?: unknown) {
+function baseFor(t: TenantInfo) {
+  const sport = t.sport || 'fotboll';
+  const city = t.city ? ` i ${t.city}` : '';
+  const planer = t.playingAreas || 'planer';
+  // Gothia Cup är faktiskt världens största ungdomsturnering – den
+  // beskrivningen hör hemma där och ingen annanstans.
+  const intro = t.name === 'Gothia Cup'
+    ? `Du är AI-driftassistenten för Gothia Cup – världens största internationella ungdomsturnering i fotboll, med tusentals lag, tiotusentals deltagare, matcher över hela Göteborg`
+    : `Du är AI-driftassistenten för ${t.name} – en ungdomsturnering i ${sport}${city}, med lag, deltagare och matcher fördelade över flera ${planer}`;
+
+  return `${intro} och ett helt driftteam (ledning, områdesansvariga, skolvärdar, planvärdar, matchdelegater och säkerhetsgrupp) som håller ihop allt.
+Skriv på svenska. Var konkret, kort och handlingsorienterad – punktlistor framför prosa. Hitta ALDRIG på data; använd endast lägesbilden nedan. Riskflaggor: grön = planvärd + domare räcker, gul = matchdelegat kopplas in, röd = säkerhetsgruppen kopplas in.`;
+}
+
+export function reportPrompt(
+  kind: string,
+  slot: string,
+  ctx: unknown,
+  routes?: unknown,
+  tenant?: TenantInfo
+) {
+  const BASE = baseFor(tenant ?? { id: '', name: 'Gothia Cup' });
   const slotTxt = slot === 'morning' ? 'MORGONRAPPORT (inför dagen)' : slot === 'evening' ? 'KVÄLLSRAPPORT (summering av dagen och läget inför natten)' : 'LÄGESRAPPORT';
   const data = `\n\nLÄGESBILD (JSON):\n${JSON.stringify(ctx, null, 1)}`;
   if (kind === 'overview') {
@@ -174,22 +203,27 @@ export function reportPrompt(kind: string, slot: string, ctx: unknown, routes?: 
     return `${BASE}\n\nSkriv en RAPPORT OM FLAGGADE MATCHER (gul/röd) idag. För varje flaggad match: tid, arena/plan, lag, klass, risknivå, notering, samt exakt vilken funktion som ska kopplas in och när de bör vara på plats. Avsluta med en samlad bedömning för säkerhetsgruppen. Om inga flaggade matcher finns: skriv kort att alla dagens matcher är gröna.${data}`;
   }
   // security
-  return `${BASE}\n\nSkriv en KÖRORDER/BRIEFING för de fyra säkerhetsbilarna som ronderar mellan skolorna (${slotTxt.toLowerCase()}). Rutterna är redan beräknade nedan – för varje bil: sammanfatta rutten i stoppordning med skälen per stopp, vad föraren särskilt ska kontrollera, och när avvikelser ska eskaleras till säkerhetsgruppen. Kort och körbart.\n\nRUTTER (JSON):\n${JSON.stringify(routes, null, 1)}${data}`;
+  return `${BASE}\n\nSkriv en KÖRORDER/BRIEFING för säkerhetsbilarna som ronderar mellan skolorna (${slotTxt.toLowerCase()}). Rutterna är redan beräknade nedan – för varje bil: sammanfatta rutten i stoppordning med skälen per stopp, vad föraren särskilt ska kontrollera, och när avvikelser ska eskaleras till säkerhetsgruppen. Kort och körbart.\n\nRUTTER (JSON):\n${JSON.stringify(routes, null, 1)}${data}`;
 }
 
-export async function generateReport(db: SupabaseClient, kind: string, slot: string) {
+export async function generateReport(
+  db: SupabaseClient,
+  kind: string,
+  slot: string,
+  tenant: TenantInfo
+) {
   let routes: unknown;
   let ctx: unknown;
   if (kind === 'security') {
-    const r = await buildRoutes(db, slot);
+    const r = await buildRoutes(db, slot, tenant.id);
     routes = r.cars; ctx = r.ctx;
   } else {
-    ctx = await gatherContext(db);
+    ctx = await gatherContext(db, tenant.id);
   }
-  const body = await callGemini(reportPrompt(kind, slot, ctx, routes));
+  const body = await callGemini(reportPrompt(kind, slot, ctx, routes, tenant));
   await db.from('ai_reports').upsert(
-    { kind, slot, body },
-    { onConflict: 'kind,slot,report_date' }
+    { kind, slot, body, tenant_id: tenant.id },
+    { onConflict: 'tenant_id,kind,slot,report_date' }
   );
   return body;
 }

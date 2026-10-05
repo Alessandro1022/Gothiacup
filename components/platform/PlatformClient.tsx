@@ -1,8 +1,15 @@
 'use client';
-// Plattformsvy: skapa, färgsätt, aktivera och avaktivera turneringar.
+// Plattformsvy för ägaren: skapa turneringar, färgsätt dem, växla sin egen
+// vy mellan dem och bjuda in en chef till varje.
+//
+// Obs skillnaden mot tidigare: "Aktivera" fanns när bara en turnering kunde
+// vara igång. Nu pågår flera samtidigt, så knappen växlar BARA din egen vy
+// genom att ändra din tenant_id. Andra användare påverkas inte.
+// "Pågår" är enbart en status på turneringen.
 import { useCallback, useEffect, useState } from 'react';
-import { Check, Copy, Plus, Trash2 } from 'lucide-react';
+import { Copy, Plus, Trash2, LogIn, UserPlus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { useTenant } from '@/components/TenantProvider';
 import {
   FEATURE_KEYS, FEATURE_LABELS, labelsForSport,
   type FeatureKey, type TenantRow
@@ -36,10 +43,14 @@ const emptyDraft = (): Draft => ({
 
 export default function PlatformClient() {
   const supabase = createClient();
+  const tn = useTenant();
   const [rows, setRows] = useState<TenantRow[]>([]);
   const [editId, setEditId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft>(emptyDraft());
   const [open, setOpen] = useState(false);
+  const [inviteFor, setInviteFor] = useState<TenantRow | null>(null);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
   const [loading, setLoading] = useState(true);
@@ -104,20 +115,55 @@ export default function PlatformClient() {
       ? await supabase.from('tenants').update(payload).eq('id', editId)
       : await supabase.from('tenants').insert(payload);
     if (error) { setErr(error.message); return; }
-    setOpen(false); setMsg('Sparat'); load();
+    setOpen(false); setMsg('Sparat'); load(); tn.reload();
   };
 
-  const activate = async (t: TenantRow) => {
+  // Växlar BARA din egen vy. Hela appen laddas om eftersom all data byts.
+  const switchTo = async (t: TenantRow) => {
+    setErr(''); setBusy(true);
+    const { data: u } = await supabase.auth.getUser();
+    if (!u?.user) { setErr('Ej inloggad'); setBusy(false); return; }
+    const { error } = await supabase.from('profiles')
+      .update({ tenant_id: t.id }).eq('id', u.user.id);
+    setBusy(false);
+    if (error) { setErr(error.message); return; }
+    window.location.reload();
+  };
+
+  const toggleRunning = async (t: TenantRow) => {
     setErr('');
-    const { error } = await supabase.from('tenants').update({ active: true }).eq('id', t.id);
-    if (error) setErr(error.message);
-    else setMsg(`${t.name} är nu aktiv`);
-    load();
+    const { error } = await supabase.from('tenants')
+      .update({ active: !t.active }).eq('id', t.id);
+    if (error) setErr(error.message); else load();
+  };
+
+  const sendInvite = async () => {
+    if (!inviteFor) return;
+    setErr(''); setMsg(''); setBusy(true);
+    try {
+      const res = await fetch('/api/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: inviteEmail.trim(),
+          role: 'leadership',
+          tenantId: inviteFor.id
+        })
+      });
+      const body = await res.json().catch(() => ({}));
+      setBusy(false);
+      if (!res.ok) { setErr(body.error || 'Inbjudan misslyckades'); return; }
+      setMsg(`Inbjudan skickad till ${inviteEmail.trim()} för ${inviteFor.name}`);
+      setInviteFor(null); setInviteEmail('');
+    } catch (e) {
+      setBusy(false);
+      setErr(e instanceof Error ? e.message : 'Inbjudan misslyckades');
+    }
   };
 
   const remove = async (t: TenantRow) => {
-    if (t.active) { setErr('Går inte att radera en aktiv turnering'); return; }
-    if (!confirm(`Radera ${t.name}? Detta går inte att ångra.`)) return;
+    if (t.id === tn.active?.id) { setErr('Växla till en annan turnering innan du raderar den här.'); return; }
+    if (!confirm(`Radera ${t.name}? All data i turneringen raderas och det går inte att ångra.`)) return;
     const { error } = await supabase.from('tenants').delete().eq('id', t.id);
     if (error) setErr(error.message);
     load();
@@ -140,7 +186,7 @@ export default function PlatformClient() {
         <div>
           <h1 className="page-title">Plattform</h1>
           <div className="page-sub" style={{ marginBottom: 0 }}>
-            {rows.length} turneringar · {rows.find((r) => r.active)?.name ?? 'ingen aktiv'}
+            {rows.length} turneringar · du är i {tn.name}
           </div>
         </div>
         <button className="btn btn-primary" onClick={startNew}>
@@ -153,68 +199,101 @@ export default function PlatformClient() {
       {loading && <div className="page-sub">Laddar…</div>}
 
       <div className="grid-cards" style={{ marginTop: 14 }}>
-        {rows.map((t) => (
-          <div key={t.id} className="card">
-            <div className="li-head">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{
-                  width: 44, height: 44, borderRadius: 13, flexShrink: 0,
-                  background: t.colors?.panel2 ?? '#25618F', color: '#fff',
-                  display: 'grid', placeItems: 'center', fontWeight: 800
-                }}>
-                  {t.logo_text || t.name.slice(0, 2).toUpperCase()}
-                </div>
-                <div>
-                  <div className="li-title">{t.name}</div>
-                  <div className="li-meta" style={{ marginTop: 2 }}>
-                    {t.sport}{t.city ? ` · ${t.city}` : ''}
+        {rows.map((t) => {
+          const here = t.id === tn.active?.id;
+          return (
+            <div key={t.id} className="card">
+              <div className="li-head">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{
+                    width: 44, height: 44, borderRadius: 13, flexShrink: 0,
+                    background: t.colors?.panel2 ?? '#25618F', color: '#fff',
+                    display: 'grid', placeItems: 'center', fontWeight: 800
+                  }}>
+                    {t.logo_text || t.name.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div>
+                    <div className="li-title">{t.name}</div>
+                    <div className="li-meta" style={{ marginTop: 2 }}>
+                      {t.sport}{t.city ? ` · ${t.city}` : ''}
+                    </div>
                   </div>
                 </div>
+                {here && <span className="badge b-resolved">Din vy</span>}
               </div>
-              {t.active && <span className="badge b-resolved">Aktiv</span>}
-            </div>
 
-            <div style={{ display: 'flex', gap: 6, alignItems: 'center', margin: '14px 0 10px' }}>
-              {['primary', 'panel2', 'accent'].map((k) => (
-                <div key={k} style={{
-                  width: 30, height: 30, borderRadius: 9,
-                  background: (t.colors as Record<string, string>)?.[k] ?? '#ccc',
-                  border: '1px solid rgba(0,0,0,.08)'
-                }} />
-              ))}
-              <div className="li-meta" style={{ marginTop: 0, marginLeft: 6 }}>
-                {FEATURE_KEYS.filter((k) => t.features?.[k] !== false).length} av {FEATURE_KEYS.length} moduler
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center', margin: '14px 0 10px' }}>
+                {['primary', 'panel2', 'accent'].map((k) => (
+                  <div key={k} style={{
+                    width: 30, height: 30, borderRadius: 9,
+                    background: (t.colors as Record<string, string>)?.[k] ?? '#ccc',
+                    border: '1px solid rgba(0,0,0,.08)'
+                  }} />
+                ))}
+                <div className="li-meta" style={{ marginTop: 0, marginLeft: 6 }}>
+                  {FEATURE_KEYS.filter((k) => t.features?.[k] !== false).length} av {FEATURE_KEYS.length} moduler
+                </div>
+              </div>
+
+              <label className="check-row" style={{ marginBottom: 10 }}>
+                <input type="checkbox" checked={!!t.active} onChange={() => toggleRunning(t)} />
+                Pågår just nu
+              </label>
+
+              <div className="li-actions">
+                {!here && (
+                  <button className="btn btn-sm btn-primary" disabled={busy} onClick={() => switchTo(t)}>
+                    <LogIn size={14} /> Växla hit
+                  </button>
+                )}
+                <button className="btn btn-sm" onClick={() => startEdit(t)}>Redigera</button>
+                <button className="btn btn-sm" onClick={() => { setInviteFor(t); setInviteEmail(''); setErr(''); setMsg(''); }}>
+                  <UserPlus size={13} /> Bjud in chef
+                </button>
+                <button className="btn btn-sm" onClick={() => duplicate(t)}>
+                  <Copy size={13} /> Kopiera
+                </button>
+                {!here && (
+                  <button className="btn btn-sm btn-danger" onClick={() => remove(t)}>
+                    <Trash2 size={13} />
+                  </button>
+                )}
               </div>
             </div>
-
-            <div className="li-actions">
-              {!t.active && (
-                <button className="btn btn-sm btn-primary" onClick={() => activate(t)}>
-                  <Check size={14} /> Aktivera
-                </button>
-              )}
-              <button className="btn btn-sm" onClick={() => startEdit(t)}>Redigera</button>
-              <button className="btn btn-sm" onClick={() => duplicate(t)}>
-                <Copy size={13} /> Kopiera
-              </button>
-              {!t.active && (
-                <button className="btn btn-sm btn-danger" onClick={() => remove(t)}>
-                  <Trash2 size={13} />
-                </button>
-              )}
-            </div>
-          </div>
-        ))}
+          );
+        })}
         {!loading && rows.length === 0 && (
           <div className="page-sub">Inga turneringar ännu – kör schema_part6_tenants.sql först.</div>
         )}
       </div>
 
+      {inviteFor && (
+        <div className="modal-overlay" onClick={() => setInviteFor(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 460 }}>
+            <h3>Bjud in chef till {inviteFor.name}</h3>
+            <div className="page-sub">
+              Personen får rollen ledning i den här turneringen och kan sedan bjuda in
+              sin egen personal. Hen ser ingen data från dina andra turneringar.
+            </div>
+            <label className="label">E-post</label>
+            <input className="input" type="email" value={inviteEmail} autoComplete="off"
+              onChange={(e) => setInviteEmail(e.target.value)} placeholder="chef@exempel.se" />
+            <div className="modal-actions">
+              <button className="btn" onClick={() => setInviteFor(null)}>Avbryt</button>
+              <button className="btn btn-primary" disabled={busy || !/.+@.+\..+/.test(inviteEmail)}
+                onClick={sendInvite}>
+                Skicka inbjudan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {open && (
         <div className="modal-overlay" onClick={() => setOpen(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560 }}>
             <h3>{editId ? 'Redigera turnering' : 'Ny turnering'}</h3>
-            <div className="page-sub">Namn, färger och moduler. Aktivera efteråt för att byta.</div>
+            <div className="page-sub">Namn, färger och moduler. Växla hit efteråt för att se den.</div>
 
             <label className="label">Namn</label>
             <input className="input" value={draft.name}

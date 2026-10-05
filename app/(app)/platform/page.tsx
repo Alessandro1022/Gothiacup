@@ -1,12 +1,18 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import PlatformClient from '@/components/platform/PlatformClient';
-import { tierOf, type Role } from '@/lib/types';
 
+// Plattformsvyn är ägarens, inte varje turneringschefs. En innebandychef har
+// också tier 6 – fast bara inom sin egen turnering – och ska inte kunna se
+// eller skapa andras turneringar här.
 export default async function PlatformPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user!.id).single();
-  if (tierOf((profile?.role ?? 'volunteer') as Role) < 6) redirect('/dashboard');
+  if (!user) redirect('/login');
+
+  const { data: profile } = await supabase
+    .from('profiles').select('platform_owner').eq('id', user.id).maybeSingle();
+
+  if (!profile?.platform_owner) redirect('/dashboard');
   return <PlatformClient />;
 }

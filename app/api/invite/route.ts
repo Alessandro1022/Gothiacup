@@ -1,5 +1,10 @@
 // Inbjudningar: admin anger e-post + roll + scope.
-// Supabase skickar inbjudningsmejlet; apply_invite-triggern sätter roll/scope vid första inloggning.
+// Supabase skickar inbjudningsmejlet; apply_invite-triggern sätter roll,
+// turnering och scope vid första inloggningen.
+//
+// Tenant-regeln: en admin bjuder in till SIN egen turnering. Bara
+// plattformsägaren får bjuda in till en annan - det är så en ny
+// turneringschef får sitt konto.
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createSupabase } from '@supabase/supabase-js';
@@ -10,13 +15,35 @@ export async function POST(req: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 });
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+
+  const { data: profile } = await supabase
+    .from('profiles').select('role, tenant_id, platform_owner').eq('id', user.id).single();
+
   if (tierOf((profile?.role ?? 'volunteer') as Role) < 5) {
     return NextResponse.json({ error: 'Endast admin kan bjuda in' }, { status: 403 });
   }
 
-  const { email, role, areaId, locationType, locationId } = await req.json().catch(() => ({}));
-  if (!email || !/.+@.+\..+/.test(email)) return NextResponse.json({ error: 'Ogiltig e-post' }, { status: 400 });
+  const { email, role, areaId, locationType, locationId, tenantId } = await req.json().catch(() => ({}));
+  if (!email || !/.+@.+\..+/.test(email)) {
+    return NextResponse.json({ error: 'Ogiltig e-post' }, { status: 400 });
+  }
+
+  // Vilken turnering hamnar personen i?
+  const isOwner = !!profile?.platform_owner;
+  const targetTenant = tenantId && isOwner ? tenantId : profile?.tenant_id;
+
+  if (!targetTenant) {
+    return NextResponse.json({ error: 'Ingen turnering kopplad till ditt konto' }, { status: 400 });
+  }
+  if (tenantId && !isOwner && tenantId !== profile?.tenant_id) {
+    return NextResponse.json(
+      { error: 'Du kan bara bjuda in till din egen turnering' }, { status: 403 }
+    );
+  }
+
+  // Scope hör till en plats i den egna turneringen – skicka inte med det
+  // när ägaren bjuder in en chef till en annan turnering.
+  const crossTenant = targetTenant !== profile?.tenant_id;
 
   const service = createSupabase(
     supabaseUrl(),
@@ -24,12 +51,14 @@ export async function POST(req: Request) {
     { auth: { persistSession: false } }
   );
 
-  // 1) Stage:a roll + scope
+  // 1) Stage:a turnering + roll + scope
   const { error: invErr } = await service.from('invites').insert({
-    email, role: role || 'volunteer',
-    area_id: areaId || null,
-    location_type: locationType || null,
-    location_id: locationId || null,
+    email,
+    role: role || 'volunteer',
+    tenant_id: targetTenant,
+    area_id: crossTenant ? null : (areaId || null),
+    location_type: crossTenant ? null : (locationType || null),
+    location_id: crossTenant ? null : (locationId || null),
     invited_by: user.id
   });
   if (invErr) return NextResponse.json({ error: invErr.message }, { status: 500 });

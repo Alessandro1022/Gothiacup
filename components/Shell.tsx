@@ -50,7 +50,9 @@ export default function Shell({ role, name, children }: Props) {
       setStaffPct(act.count ? Math.round(((chk.count ?? 0) / act.count) * 100) : null);
     };
     const loadCrisis = async () => {
-      const { data } = await supabase.from('crisis_state').select('active,message').eq('id', 1).single();
+      // Ingen id-filtrering längre: krisläget är en rad per turnering och
+      // RLS ger bara den inloggades egen.
+      const { data } = await supabase.from('crisis_state').select('active,message').maybeSingle();
       if (data) setCrisis(data);
     };
     loadCounts(); loadCrisis();

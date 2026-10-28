@@ -31,7 +31,30 @@ export type TenantRow = {
   sport: string; city: string; logo_text: string; logo_url: string | null;
   colors: TenantColors; labels: TenantLabels; features: Features;
   active: boolean;
+  // Paket och pris (del 8). plan_name är en ögonblicksbild: ändrar man vad
+  // ett paket innehåller ska befintliga kunder inte tyst tappa moduler.
+  plan_id: string | null;
+  plan_name: string;
+  price_per_year: number | null;
+  plan_customized: boolean;
+  billing_note: string;
 };
+
+export type PlanRow = {
+  id: string; slug: string; name: string; description: string;
+  features: Features; price_per_year: number | null;
+  sort_order: number; active: boolean;
+};
+
+// Hur många moduler ett paket faktiskt ger. En nyckel som inte nämns är på.
+export function countModules(features: Features): number {
+  return FEATURE_KEYS.filter((k) => features?.[k] !== false).length;
+}
+
+export function formatPrice(kr: number | null): string {
+  if (kr === null || kr === undefined) return 'Offert';
+  return `${new Intl.NumberFormat('sv-SE').format(kr)} kr/år`;
+}
 
 // Ord som följer sporten – används som förval när man väljer sport
 export function labelsForSport(sport: string): Required<Pick<TenantLabels, 'playingArea' | 'playingAreas' | 'matchStart'>> {

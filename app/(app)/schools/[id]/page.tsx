@@ -1,8 +1,10 @@
 import { createClient } from '@/lib/supabase/server';
 import SchoolDetailClient from '@/components/schools/SchoolDetailClient';
 
+import { assertModule } from '@/lib/modules';
 // Next 15: params är async
 export default async function SchoolDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  await assertModule('schools');
   const { id } = await params;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

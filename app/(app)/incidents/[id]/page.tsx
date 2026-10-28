@@ -3,7 +3,9 @@ import { createClient } from '@/lib/supabase/server';
 import IncidentDetailClient from '@/components/incidents/IncidentDetailClient';
 import type { Role } from '@/lib/types';
 
+import { assertModule } from '@/lib/modules';
 export default async function IncidentPage({ params }: { params: Promise<{ id: string }> }) {
+  await assertModule('incidents');
   const { id } = await params;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

@@ -11,8 +11,8 @@ import { Copy, Plus, Trash2, LogIn, UserPlus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useTenant } from '@/components/TenantProvider';
 import {
-  FEATURE_KEYS, FEATURE_LABELS, labelsForSport,
-  type FeatureKey, type TenantRow
+  FEATURE_KEYS, FEATURE_LABELS, labelsForSport, countModules, formatPrice,
+  type FeatureKey, type TenantRow, type PlanRow
 } from '@/lib/features';
 
 const SPORTS = ['fotboll', 'innebandy', 'handboll', 'basket', 'dans', 'annat'];
@@ -31,6 +31,11 @@ type Draft = {
   colors: Record<string, string>;
   labels: Record<string, string>;
   features: Record<string, boolean>;
+  plan_id: string | null;
+  plan_name: string;
+  price_per_year: string;      // textfält, tomt = offert
+  plan_customized: boolean;
+  billing_note: string;
 };
 
 const emptyDraft = (): Draft => ({
@@ -38,13 +43,15 @@ const emptyDraft = (): Draft => ({
   logo_text: '', logo_url: '',
   colors: { ...PRESETS[0].colors },
   labels: { ...labelsForSport('fotboll'), school: 'Skola', schools: 'Skolor', area: 'Område', areas: 'Områden' },
-  features: Object.fromEntries(FEATURE_KEYS.map((k) => [k, true]))
+  features: Object.fromEntries(FEATURE_KEYS.map((k) => [k, true])),
+  plan_id: null, plan_name: '', price_per_year: '', plan_customized: false, billing_note: ''
 });
 
 export default function PlatformClient() {
   const supabase = createClient();
   const tn = useTenant();
   const [rows, setRows] = useState<TenantRow[]>([]);
+  const [plans, setPlans] = useState<PlanRow[]>([]);
   const [editId, setEditId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft>(emptyDraft());
   const [open, setOpen] = useState(false);
@@ -56,9 +63,14 @@ export default function PlatformClient() {
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    const { data, error } = await supabase.from('tenants').select('*').order('name');
-    if (error) setErr(error.message);
-    setRows((data ?? []) as TenantRow[]);
+    const [t, p] = await Promise.all([
+      supabase.from('tenants').select('*').order('name'),
+      supabase.from('plans').select('*').eq('active', true).order('sort_order')
+    ]);
+    if (t.error) setErr(t.error.message);
+    setRows((t.data ?? []) as TenantRow[]);
+    // Saknas plans-tabellen ännu visas bara modulreglagen, inga paket
+    setPlans((p.data ?? []) as PlanRow[]);
     setLoading(false);
   }, [supabase]);
 
@@ -84,7 +96,12 @@ export default function PlatformClient() {
         school: 'Skola', schools: 'Skolor', area: 'Område', areas: 'Områden',
         ...(t.labels ?? {})
       } as Record<string, string>,
-      features: Object.fromEntries(FEATURE_KEYS.map((k) => [k, t.features?.[k] !== false]))
+      features: Object.fromEntries(FEATURE_KEYS.map((k) => [k, t.features?.[k] !== false])),
+      plan_id: t.plan_id ?? null,
+      plan_name: t.plan_name ?? '',
+      price_per_year: t.price_per_year === null || t.price_per_year === undefined ? '' : String(t.price_per_year),
+      plan_customized: !!t.plan_customized,
+      billing_note: t.billing_note ?? ''
     });
     setErr(''); setMsg(''); setOpen(true);
   };
@@ -109,7 +126,12 @@ export default function PlatformClient() {
       logo_url: draft.logo_url.trim() || null,
       colors: draft.colors,
       labels: draft.labels,
-      features: draft.features
+      features: draft.features,
+      plan_id: draft.plan_id,
+      plan_name: draft.plan_name,
+      price_per_year: draft.price_per_year.trim() === '' ? null : Number(draft.price_per_year),
+      plan_customized: draft.plan_customized,
+      billing_note: draft.billing_note.trim()
     };
     const { error } = editId
       ? await supabase.from('tenants').update(payload).eq('id', editId)
@@ -171,8 +193,25 @@ export default function PlatformClient() {
 
   const setColor = (k: string, v: string) =>
     setDraft((d) => ({ ...d, colors: { ...d.colors, [k]: v } }));
+  // Paketets moduler KOPIERAS in. De läses inte live, så att en senare
+  // ändring av paketet inte tyst tar bort moduler hos befintliga kunder.
+  const applyPlan = (pl: PlanRow) =>
+    setDraft((d) => ({
+      ...d,
+      plan_id: pl.id,
+      plan_name: pl.name,
+      price_per_year: pl.price_per_year === null ? '' : String(pl.price_per_year),
+      features: Object.fromEntries(FEATURE_KEYS.map((k) => [k, pl.features?.[k] !== false])),
+      plan_customized: false
+    }));
+
+  // Rör man ett enskilt reglage är paketet inte längre standard
   const toggleFeature = (k: FeatureKey) =>
-    setDraft((d) => ({ ...d, features: { ...d.features, [k]: !d.features[k] } }));
+    setDraft((d) => ({
+      ...d,
+      features: { ...d.features, [k]: !d.features[k] },
+      plan_customized: d.plan_id ? true : d.plan_customized
+    }));
   const applyPreset = (p: typeof PRESETS[number]) =>
     setDraft((d) => ({ ...d, colors: { ...p.colors } }));
   const applySport = (s: string) =>
@@ -186,7 +225,9 @@ export default function PlatformClient() {
         <div>
           <h1 className="page-title">Plattform</h1>
           <div className="page-sub" style={{ marginBottom: 0 }}>
-            {rows.length} turneringar · du är i {tn.name}
+            {rows.length} turneringar · {formatPrice(
+              rows.reduce((a, r) => a + (r.price_per_year ?? 0), 0)
+            )} totalt · du är i {tn.name}
           </div>
         </div>
         <button className="btn btn-primary" onClick={startNew}>
@@ -231,9 +272,25 @@ export default function PlatformClient() {
                   }} />
                 ))}
                 <div className="li-meta" style={{ marginTop: 0, marginLeft: 6 }}>
-                  {FEATURE_KEYS.filter((k) => t.features?.[k] !== false).length} av {FEATURE_KEYS.length} moduler
+                  {countModules(t.features)} av {FEATURE_KEYS.length} moduler
                 </div>
               </div>
+
+              {t.plan_name && (
+                <div style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+                  gap: 10, padding: '9px 12px', borderRadius: 10,
+                  background: 'var(--bg)', marginBottom: 10
+                }}>
+                  <span style={{ fontWeight: 600, fontSize: 13.5 }}>
+                    {t.plan_name}
+                    {t.plan_customized && (
+                      <span className="li-meta" style={{ marginLeft: 7, marginTop: 0 }}>anpassat</span>
+                    )}
+                  </span>
+                  <span className="mono" style={{ fontSize: 13 }}>{formatPrice(t.price_per_year)}</span>
+                </div>
+              )}
 
               <label className="check-row" style={{ marginBottom: 10 }}>
                 <input type="checkbox" checked={!!t.active} onChange={() => toggleRunning(t)} />
@@ -367,8 +424,53 @@ export default function PlatformClient() {
               ))}
             </div>
 
+            {plans.length > 0 && (
+              <>
+                <label className="label" style={{ marginTop: 18 }}>Paket</label>
+                <div style={{ display: 'grid', gap: 8 }}>
+                  {plans.map((pl) => {
+                    const picked = draft.plan_id === pl.id;
+                    return (
+                      <button key={pl.id} onClick={() => applyPlan(pl)}
+                        style={{
+                          textAlign: 'left', padding: '12px 14px', borderRadius: 11, cursor: 'pointer',
+                          border: picked ? '2px solid var(--primary)' : '1px solid var(--line)',
+                          background: picked ? 'color-mix(in srgb, var(--primary) 7%, transparent)' : '#fff'
+                        }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'baseline' }}>
+                          <span style={{ fontWeight: 700, fontSize: 14.5 }}>{pl.name}</span>
+                          <span className="mono" style={{ fontSize: 13 }}>{formatPrice(pl.price_per_year)}</span>
+                        </div>
+                        <div className="li-meta" style={{ marginTop: 3 }}>
+                          {countModules(pl.features)} av {FEATURE_KEYS.length} moduler · {pl.description}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="inline-form cols" style={{ border: 'none', padding: 0, background: 'none', marginTop: 10 }}>
+                  <div>
+                    <label className="label">Pris (kr/år)</label>
+                    <input className="input" inputMode="numeric" value={draft.price_per_year}
+                      onChange={(e) => setDraft({ ...draft, price_per_year: e.target.value.replace(/[^0-9]/g, '') })}
+                      placeholder="Tomt = offert" />
+                  </div>
+                  <div>
+                    <label className="label">Notering om fakturering</label>
+                    <input className="input" value={draft.billing_note}
+                      onChange={(e) => setDraft({ ...draft, billing_note: e.target.value })}
+                      placeholder="t.ex. faktureras i januari" />
+                  </div>
+                </div>
+              </>
+            )}
+
             <label className="label" style={{ marginTop: 18 }}>
               Moduler · {activeCount} av {FEATURE_KEYS.length} på
+              {draft.plan_customized && (
+                <span className="badge" style={{ marginLeft: 8 }}>anpassat</span>
+              )}
             </label>
             <div style={{ display: 'grid', gap: 7 }}>
               {FEATURE_KEYS.map((k) => (

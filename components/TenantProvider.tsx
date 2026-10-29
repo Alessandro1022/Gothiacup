@@ -8,7 +8,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { tenant as fallback } from '@/lib/tenant';
-import type { FeatureKey, TenantRow } from '@/lib/features';
+import { hasModule, type FeatureKey, type TenantRow } from '@/lib/features';
 
 type Ctx = {
   active: TenantRow | null;
@@ -157,7 +157,7 @@ export default function TenantProvider({ children }: { children: React.ReactNode
       area: row?.labels?.area || base.labels.area,
       areas: row?.labels?.areas || base.labels.areas
     },
-    has: (f) => (row ? row.features?.[f] !== false : true),
+    has: (f) => (row ? hasModule(row.features, f) : true),
     isOwner,
     reload
   };

@@ -46,9 +46,19 @@ export type PlanRow = {
   sort_order: number; active: boolean;
 };
 
-// Hur många moduler ett paket faktiskt ger. En nyckel som inte nämns är på.
+// Hur många moduler ett paket faktiskt ger. En modul räknas bara när den
+// uttryckligen står som true – en omämnd nyckel är avstängd, så att en ny
+// modul aldrig blir gratis för befintliga kunder. En helt tom uppsättning
+// betyder att inget är satt ännu, och då visas allt.
 export function countModules(features: Features): number {
-  return FEATURE_KEYS.filter((k) => features?.[k] !== false).length;
+  if (!features || Object.keys(features).length === 0) return FEATURE_KEYS.length;
+  return FEATURE_KEYS.filter((k) => features[k] === true).length;
+}
+
+// Samma regel, för en enskild modul
+export function hasModule(features: Features | null | undefined, k: FeatureKey): boolean {
+  if (!features || Object.keys(features).length === 0) return true;
+  return features[k] === true;
 }
 
 export function formatPrice(kr: number | null): string {

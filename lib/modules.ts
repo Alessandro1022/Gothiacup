@@ -15,14 +15,16 @@ export async function moduleEnabled(key: FeatureKey): Promise<boolean> {
     const { data } = await supabase.rpc('my_tenant_row').maybeSingle();
     const features = (data as TenantFeatures)?.features;
 
-    // Ingen turnering satt, eller tabellen saknas ännu: blockera inte.
-    // Medvetet val – ett databasfel ska inte låsa ute en betalande kund.
-    // Menyn döljer modulen ändå, så exponeringen är liten.
-    if (!features) return true;
+    // Ingen turnering satt, tabellen saknas, eller tom uppsättning:
+    // blockera inte. Medvetet val – ett databasfel ska inte låsa ute en
+    // betalande kund, och menyn döljer modulen ändå.
+    if (!features || Object.keys(features).length === 0) return true;
 
-    // En modul som inte nämns i paketet räknas som på. Avstängda moduler
-    // sätts uttryckligen till false av paketen i del 8.
-    return features[key] !== false;
+    // En modul är PÅ bara om den uttryckligen står som true. Tidigare
+    // räknades en omämnd nyckel som på, och då hade varje ny modul blivit
+    // gratis för alla befintliga kunder tills den stängdes av för hand.
+    // Del 9 ser till att varje turnering har en komplett uppsättning.
+    return features[key] === true;
   } catch {
     return true;
   }

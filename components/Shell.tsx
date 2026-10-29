@@ -6,7 +6,7 @@ import {
   Menu, LayoutDashboard, AlertTriangle, CheckSquare, LogOut,
   Map, School, Landmark, CalendarClock, Users, BarChart3,
   Newspaper, MessageSquare, FileText, Siren, Settings2, Sparkles, History,
-  Layers, Building2, Package, Truck, UtensilsCrossed
+  Layers, Building2, Package, Truck, UtensilsCrossed, Wallet
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useLang } from '@/components/LanguageProvider';
@@ -108,6 +108,7 @@ export default function Shell({ role, name, children }: Props) {
     {
       label: tr('gMgmt'),
       items: [
+        { href: '/finance', label: 'Ekonomi', Icon: Wallet, minTier: 4 },
         { href: '/staff', label: tr('staff'), Icon: Users, minTier: 4 },
         { href: '/history', label: tr('history'), Icon: History, minTier: 4 },
         { href: '/crisis', label: tr('crisis'), Icon: Siren, minTier: 5 },

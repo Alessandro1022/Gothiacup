@@ -601,3 +601,204 @@ a.list-item:active, .link-card:active { transform: scale(.98); }
   .cards > .card { min-height: 120px; }
   .cards > .card .kpi-num { font-size: 36px; }
 }
+
+/* ================================================================
+   KARTA
+   Leaflet har egna z-index upp till 1000. isolation håller dem inne i
+   kartlådan, annars lägger sig zoomknapparna över topbaren och menyn.
+   ================================================================ */
+.map-wrap {
+  position: relative; isolation: isolate; overflow: hidden;
+  height: 58vh; min-height: 320px; max-height: 760px;
+  margin: 0 -16px;
+  background: #E6ECF2;
+  border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+}
+.map-box { position: absolute; top: 0; right: 0; bottom: 0; left: 0; z-index: 0; }
+.map-box.leaflet-container { font: inherit; background: #E6ECF2; }
+.map-wrap.placing .leaflet-container { cursor: crosshair; }
+.map-wrap.placing .mk-wrap { pointer-events: none; opacity: .5; }
+.map-wrap.placing .leaflet-tooltip.mk-label { display: none; }
+
+/* Leaflets kontroller i appens stil */
+.map-box .leaflet-control-zoom {
+  border: none; border-radius: 14px; overflow: hidden;
+  box-shadow: 0 2px 8px rgba(10, 25, 40, .22); margin: 12px 12px 0 0;
+}
+.map-box .leaflet-control-zoom a {
+  width: 44px; height: 44px; line-height: 44px; font-size: 20px; color: var(--ink);
+}
+.map-box .leaflet-control-attribution {
+  font-size: 10px; background: rgba(255, 255, 255, .82); padding: 1px 6px; border-radius: 8px 0 0 0;
+}
+
+/* Egna knappar uppe till vänster */
+.map-tools { position: absolute; top: 12px; left: 12px; z-index: 2; display: grid; gap: 8px; }
+.map-tool {
+  width: 44px; height: 44px; border-radius: 14px; border: none;
+  background: #fff; color: var(--ink); display: grid; place-items: center;
+  box-shadow: 0 2px 8px rgba(10, 25, 40, .22);
+}
+.map-tool:active { transform: scale(.94); }
+.map-tool.on { background: #2F80ED; color: #fff; }
+@keyframes spinSlow { to { transform: rotate(360deg); } }
+.spin-slow { animation: spinSlow 1.4s linear infinite; }
+
+.map-toast {
+  position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 4;
+  background: var(--ink); color: #fff; font-size: 13px; font-weight: 600;
+  padding: 9px 14px; border-radius: 99px; box-shadow: var(--sh-2);
+  white-space: nowrap; max-width: calc(100% - 132px); overflow: hidden; text-overflow: ellipsis;
+}
+.map-toast.warn { background: #FFF3D1; color: #8A6A12; }
+
+/* ---- Markörer ---- */
+.mk-wrap, .mk-pin { background: none; border: none; }
+.mk { position: relative; width: 36px; height: 36px; display: grid; place-items: center; }
+.mk-dot {
+  position: relative; z-index: 1;
+  width: 22px; height: 22px; display: grid; place-items: center;
+  color: #fff; font-size: 11px; font-weight: 800; line-height: 1;
+  border: 2.5px solid #fff; box-shadow: 0 1px 4px rgba(10, 25, 40, .38);
+  transition: transform .15s var(--ease);
+}
+.mk-ci .mk-dot { border-radius: 50%; }
+.mk-sq .mk-dot { border-radius: 6px; width: 21px; height: 21px; }
+.mk-school.mk-ok .mk-dot { background: var(--ok); }
+.mk-arena.mk-ok .mk-dot { background: var(--primary); }
+.mk-issue .mk-dot { background: #E0A106; }
+.mk-inc .mk-dot, .mk-crit .mk-dot { background: var(--danger); }
+.mk-sel .mk-dot { transform: scale(1.38); border-color: var(--ink); }
+.mk-ring {
+  position: absolute; left: 4px; top: 4px; width: 28px; height: 28px; border-radius: 50%;
+  background: var(--danger); opacity: .3; animation: mkPulse 1.8s ease-out infinite;
+}
+.mk-crit .mk-ring { animation-duration: 1.2s; }
+@keyframes mkPulse { 0% { transform: scale(.6); opacity: .55; } 100% { transform: scale(1.7); opacity: 0; } }
+.mk-n {
+  position: absolute; top: -1px; right: -1px; z-index: 2;
+  min-width: 17px; height: 17px; padding: 0 4px; border-radius: 99px;
+  background: #fff; color: var(--danger); font-size: 10px; font-weight: 800;
+  display: grid; place-items: center; box-shadow: 0 1px 3px rgba(10, 25, 40, .3);
+}
+/* Utzoomat: mindre och utan bokstav, annars blir stan en klump */
+.z-far .mk-dot { transform: scale(.72); font-size: 0; }
+.z-far .mk-sel .mk-dot { transform: scale(1.1); font-size: 11px; }
+/* Namnen syns först när man zoomat in */
+.leaflet-tooltip.mk-label {
+  display: none; padding: 2px 7px; border: none; border-radius: 7px;
+  background: rgba(255, 255, 255, .94); color: var(--ink);
+  font: 700 11px/1.25 Inter, system-ui, sans-serif;
+  box-shadow: 0 1px 3px rgba(10, 25, 40, .25);
+}
+.leaflet-tooltip.mk-label::before { display: none; }
+.z-near .leaflet-tooltip.mk-label { display: block; }
+
+/* Nålen vid placering */
+.mk-draft { position: relative; width: 36px; height: 40px; }
+.mk-draft::before {
+  content: ''; position: absolute; left: 5px; top: 1px; width: 26px; height: 26px;
+  border-radius: 50% 50% 50% 0; background: var(--accent); border: 3px solid var(--ink);
+  transform: rotate(-45deg); box-shadow: 0 3px 8px rgba(10, 25, 40, .35);
+}
+.mk-draft::after {
+  content: ''; position: absolute; left: 14px; top: 10px; width: 8px; height: 8px;
+  border-radius: 50%; background: var(--ink);
+}
+
+/* ---- Panel över kartans nederkant ---- */
+.map-sheet {
+  position: absolute; left: 10px; right: 10px; bottom: 10px; z-index: 3;
+  background: var(--panel); border-radius: 20px;
+  box-shadow: 0 10px 34px rgba(10, 25, 40, .3);
+  padding: 14px 16px 16px; max-height: 64%;
+  overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+  animation: sheetUp .26s var(--ease);
+}
+.ms-head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+.ms-kind { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.ms-title { font-size: 18px; font-weight: 800; letter-spacing: -.02em; line-height: 1.25; margin-top: 2px; }
+.ms-close {
+  flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%; border: none;
+  background: #EEF2F7; color: var(--muted); display: grid; place-items: center;
+}
+.ms-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.ms-inc {
+  display: flex; align-items: center; gap: 8px; margin-top: 8px;
+  padding: 8px 10px; border-radius: 12px; background: #FDF1F1; font-size: 13.5px; font-weight: 600;
+}
+.ms-inc-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ms-info { margin-top: 10px; display: grid; gap: 5px; font-size: 13.5px; color: var(--ink); }
+.ms-info svg { vertical-align: -2px; color: var(--muted); margin-right: 3px; }
+.ms-emerg {
+  margin-top: 10px; padding: 9px 11px; border-radius: 12px; background: #FFF6E0;
+  font-size: 13px; display: grid; gap: 3px;
+}
+.ms-emerg-head { font-weight: 800; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: #8A6A12; }
+.ms-emerg-head svg { vertical-align: -2px; }
+.ms-help { font-size: 13.5px; color: var(--muted); margin-top: 6px; }
+.ms-note {
+  margin-top: 8px; font-size: 13px; padding: 8px 10px; border-radius: 10px; background: #EEF4FA;
+  overflow-wrap: anywhere;
+}
+.ms-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.ms-actions .btn-sm { min-height: 40px; padding: 8px 14px; }
+.map-edit .ms-help { margin-top: 4px; }
+
+/* ---- Teckenförklaring, sök och lista ---- */
+.map-legend {
+  display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 12px 0 14px;
+  font-size: 12px; font-weight: 600; color: var(--muted);
+}
+.map-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.lg { display: inline-block; width: 13px; height: 13px; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(10, 25, 40, .18); }
+.lg-ci { border-radius: 50%; }
+.lg-sq { border-radius: 3px; }
+.lg-ok { background: var(--ok); }
+.lg-arena { background: var(--primary); }
+.lg-issue { background: #E0A106; }
+.lg-inc { background: var(--danger); }
+.lg-letter {
+  display: inline-grid; place-items: center; width: 15px; height: 15px; border-radius: 50%;
+  background: var(--ok); color: #fff; font-size: 9px; font-weight: 800;
+}
+
+.map-search { position: relative; margin-bottom: 10px; }
+.map-search svg { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--muted); }
+.map-search .input { padding-left: 42px; }
+
+.map-li { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; font: inherit; color: inherit; padding: 10px 12px; }
+button.map-li { cursor: pointer; }
+button.map-li:active { transform: scale(.985); }
+.map-li.sel { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(29, 111, 168, .14); }
+.map-li-glyph { flex: 0 0 36px; width: 36px; height: 36px; }
+.map-li-glyph .mk-ring { display: none; }
+.map-li-body { flex: 1; min-width: 0; display: grid; }
+.map-li-body .li-title { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.map-li-body .li-meta { margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.map-li-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.map-li-badges .badge { padding: 3px 9px; font-size: 11px; }
+
+.map-missing { margin-top: 22px; }
+.map-link { color: var(--primary); font-weight: 700; white-space: nowrap; }
+.map-link svg { vertical-align: -2px; }
+.map-missing > summary {
+  list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px;
+  font-weight: 800; font-size: 15px; padding: 10px 0 12px;
+}
+.map-missing > summary::-webkit-details-marker { display: none; }
+.map-bulk {
+  display: grid; gap: 10px; justify-items: start; margin-bottom: 12px;
+  padding: 13px 14px; border-radius: var(--r-md); background: var(--panel); border: 1px dashed var(--line);
+}
+.map-bulk .prog { width: 100%; }
+
+@media (min-width: 901px) {
+  .map-wrap {
+    margin: 0; border-radius: 20px; border: 1px solid var(--line);
+    height: calc(100vh - 250px); min-height: 420px; max-height: none;
+  }
+  .map-sheet { left: 14px; right: auto; bottom: 14px; width: 390px; max-height: calc(100% - 90px); }
+  .ms-actions .btn-sm { min-height: 0; padding: 7px 13px; }
+  .map-li { padding: 10px 14px; }
+}

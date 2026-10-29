@@ -1,10 +1,11 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Users } from 'lucide-react';
+import { ArrowLeft, MapPin, Users } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useLang } from '@/components/LanguageProvider';
 import TeamRoster from '@/components/schools/TeamRoster';
+import { useTenant } from '@/components/TenantProvider';
 
 type School = { id: string; name: string; address: string | null; capacity: number };
 type Team = { id: string; team_name: string; country: string | null; group_size: number; contact_name: string | null; contact_phone: string | null; status: string; classroom_id: string | null; age_class: string; club_name: string; arrival_date: string | null; departure_date: string | null };
@@ -19,6 +20,7 @@ type Tab = 'teams' | 'rooms' | 'issues' | 'rounds' | 'keys';
 
 export default function SchoolDetailClient({ school, userId }: { school: School; userId: string }) {
   const { tr } = useLang();
+  const tn = useTenant();
   const supabase = createClient();
   const [tab, setTab] = useState<Tab>('teams');
   const [teams, setTeams] = useState<Team[]>([]);
@@ -192,7 +194,12 @@ export default function SchoolDetailClient({ school, userId }: { school: School;
         <ArrowLeft size={14} /> {tr('back')}
       </Link>
       <h1 className="page-title">{school.name}</h1>
-      <div className="page-sub">{school.address ?? ''} · <span className="mono">{inHouse}/{school.capacity}</span> {tr('capacity').toLowerCase()}</div>
+      <div className="page-sub">
+        {school.address ?? ''} · <span className="mono">{inHouse}/{school.capacity}</span> {tr('capacity').toLowerCase()}
+        {tn.has('map') && (
+          <> · <Link href={`/map?p=school:${school.id}`} className="map-link"><MapPin size={13} /> Visa på kartan</Link></>
+        )}
+      </div>
 
       <div className="tabs">
         <button className={`tab ${tab === 'teams' ? 'active' : ''}`} onClick={() => setTab('teams')}>{tr('teams')} <span className="mono">{teams.length}</span></button>

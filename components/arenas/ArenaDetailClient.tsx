@@ -1,10 +1,11 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, MapPin } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useLang } from '@/components/LanguageProvider';
 import { tenant } from '@/lib/tenant';
+import { useTenant } from '@/components/TenantProvider';
 
 type Arena = { id: string; name: string; address: string | null; surface_count: number };
 type Match = { id: string; surface_label: string; home_team: string; away_team: string; category: string | null; starts_at: string; status: string; risk_level: string; risk_note: string | null; home_score: number | null; away_score: number | null; group_name: string; walkover_team: string; report: string; referee_id: string | null };
@@ -20,6 +21,7 @@ const MATCH_STATUSES = ['scheduled', 'ongoing', 'finished', 'cancelled'] as cons
 
 export default function ArenaDetailClient({ arena, userId }: { arena: Arena; userId: string }) {
   const { tr } = useLang();
+  const tn = useTenant();
   const supabase = createClient();
   const [tab, setTab] = useState<Tab>('matches');
   const [matches, setMatches] = useState<Match[]>([]);
@@ -189,7 +191,12 @@ export default function ArenaDetailClient({ arena, userId }: { arena: Arena; use
         <ArrowLeft size={14} /> {tr('back')}
       </Link>
       <h1 className="page-title">{arena.name}</h1>
-      <div className="page-sub">{arena.address ?? ''} · {arena.surface_count} {tenant.labels.playingAreas.toLowerCase()}</div>
+      <div className="page-sub">
+        {arena.address ?? ''} · {arena.surface_count} {tenant.labels.playingAreas.toLowerCase()}
+        {tn.has('map') && (
+          <> · <Link href={`/map?p=arena:${arena.id}`} className="map-link"><MapPin size={13} /> Visa på kartan</Link></>
+        )}
+      </div>
 
       <div className="tabs">
         <button className={`tab ${tab === 'matches' ? 'active' : ''}`} onClick={() => setTab('matches')}>{tr('matchesLbl')} <span className="mono">{matches.filter((m) => m.status !== 'finished' && m.status !== 'cancelled').length}</span></button>

@@ -8,7 +8,7 @@ import { useTenant } from '@/components/TenantProvider';
 import EmergencyCard from '@/components/EmergencyCard';
 
 type Arena = { id: string; name: string; address: string | null; surface_count: number };
-type Match = { id: string; surface_label: string; home_team: string; away_team: string; category: string | null; starts_at: string; status: string; risk_level: string; risk_note: string | null; home_score: number | null; away_score: number | null; group_name: string; walkover_team: string; report: string; referee_id: string | null };
+type Match = { id: string; surface_label: string; home_team: string; away_team: string; category: string | null; starts_at: string; status: string; risk_level: string; risk_note: string | null; home_score: number | null; away_score: number | null; group_name: string; walkover_team: string; report: string; referee_id: string | null; original_starts_at: string | null; change_reason: string; protest: string; protest_status: string };
 type Referee = { id: string; full_name: string; phone: string; active: boolean };
 type SecLog = { id: string; entry: string; severity: string; created_at: string };
 type Crowd = { id: string; count: number; created_at: string };
@@ -34,6 +34,7 @@ export default function ArenaDetailClient({ arena, userId }: { arena: Arena; use
   // Formulär
   const [mSurf, setMSurf] = useState(''); const [mHome, setMHome] = useState(''); const [mAway, setMAway] = useState('');
   const [mCat, setMCat] = useState(''); const [mTime, setMTime] = useState('');
+  const [mGroup, setMGroup] = useState('');
   const [sEntry, setSEntry] = useState(''); const [sSev, setSSev] = useState('low');
   const [cCount, setCCount] = useState('');
   const [tmplId, setTmplId] = useState('');
@@ -42,13 +43,15 @@ export default function ArenaDetailClient({ arena, userId }: { arena: Arena; use
   const [scoreFor, setScoreFor] = useState<string | null>(null);
   const [sHome, setSHome] = useState(''); const [sAway, setSAway] = useState('');
   const [sReport, setSReport] = useState(''); const [sWo, setSWo] = useState('');
+  const [sProtest, setSProtest] = useState(''); const [sProtestStatus, setSProtestStatus] = useState('');
   const [emSurf, setEmSurf] = useState(''); const [emHome, setEmHome] = useState(''); const [emAway, setEmAway] = useState('');
   const [emCat, setEmCat] = useState(''); const [emTime, setEmTime] = useState('');
+  const [emGroup, setEmGroup] = useState(''); const [emReason, setEmReason] = useState('');
   const [emRisk, setEmRisk] = useState('green'); const [emRiskNote, setEmRiskNote] = useState('');
 
   const load = useCallback(async () => {
     const [m, s, c, t, r, ref] = await Promise.all([
-      supabase.from('arena_matches').select('id,surface_label,home_team,away_team,category,starts_at,status,risk_level,risk_note,home_score,away_score,group_name,walkover_team,report,referee_id').eq('arena_id', arena.id).order('starts_at'),
+      supabase.from('arena_matches').select('id,surface_label,home_team,away_team,category,starts_at,status,risk_level,risk_note,home_score,away_score,group_name,walkover_team,report,referee_id,original_starts_at,change_reason,protest,protest_status').eq('arena_id', arena.id).order('starts_at'),
       supabase.from('security_logs').select('id,entry,severity,created_at').eq('arena_id', arena.id).order('created_at', { ascending: false }).limit(30),
       supabase.from('crowd_counts').select('id,count,created_at').eq('arena_id', arena.id).order('created_at', { ascending: false }).limit(12),
       supabase.from('checklist_templates').select('id,name,items').eq('location_type', 'arena'),
@@ -89,16 +92,16 @@ export default function ArenaDetailClient({ arena, userId }: { arena: Arena; use
     if (!mHome || !mAway || !mTime) return;
     await supabase.from('arena_matches').insert({
       arena_id: arena.id, surface_label: mSurf || `${tn.labels.playingArea} 1`,
-      home_team: mHome, away_team: mAway, category: mCat || null,
+      home_team: mHome, away_team: mAway, category: mCat || null, group_name: mGroup.trim(),
       starts_at: new Date(mTime).toISOString()
     });
-    setMSurf(''); setMHome(''); setMAway(''); setMCat(''); setMTime('');
+    setMSurf(''); setMHome(''); setMAway(''); setMCat(''); setMTime(''); setMGroup('');
     load();
   };
   const openEditMatch = (m: Match) => {
     setEditM(m);
     setEmSurf(m.surface_label); setEmHome(m.home_team); setEmAway(m.away_team);
-    setEmCat(m.category ?? '');
+    setEmCat(m.category ?? ''); setEmGroup(m.group_name ?? ''); setEmReason('');
     setEmRisk(m.risk_level); setEmRiskNote(m.risk_note ?? '');
     const d = new Date(m.starts_at);
     const pad = (n: number) => String(n).padStart(2, '0');
@@ -109,7 +112,9 @@ export default function ArenaDetailClient({ arena, userId }: { arena: Arena; use
     await supabase.from('arena_matches').update({
       surface_label: emSurf, home_team: emHome, away_team: emAway,
       category: emCat || null, starts_at: new Date(emTime).toISOString(),
-      risk_level: emRisk, risk_note: emRiskNote || null
+      risk_level: emRisk, risk_note: emRiskNote || null, group_name: emGroup.trim(),
+      // Orsaken följer med i notisen till personalen när tiden ändras
+      ...(emReason.trim() ? { change_reason: emReason.trim() } : {})
     }).eq('id', editM.id);
     setEditM(null); load();
   };
@@ -118,6 +123,7 @@ export default function ArenaDetailClient({ arena, userId }: { arena: Arena; use
     setSHome(m.home_score === null ? '' : String(m.home_score));
     setSAway(m.away_score === null ? '' : String(m.away_score));
     setSReport(m.report ?? ''); setSWo(m.walkover_team ?? '');
+    setSProtest(m.protest ?? ''); setSProtestStatus(m.protest_status ?? '');
   };
   const saveScore = async (m: Match) => {
     const { data: u } = await supabase.auth.getUser();
@@ -125,6 +131,8 @@ export default function ArenaDetailClient({ arena, userId }: { arena: Arena; use
       home_score: sWo ? null : (sHome === '' ? null : parseInt(sHome)),
       away_score: sWo ? null : (sAway === '' ? null : parseInt(sAway)),
       walkover_team: sWo,
+      protest: sProtest.trim(),
+      protest_status: sProtest.trim() ? (sProtestStatus || 'inlämnad') : '',
       report: sReport,
       reported_by: u?.user?.id ?? null,
       reported_at: new Date().toISOString(),
@@ -143,6 +151,13 @@ export default function ArenaDetailClient({ arena, userId }: { arena: Arena; use
     await supabase.from('arena_matches').delete().eq('id', m.id); load();
   };
   const setMatchStatus = async (id: string, status: string) => {
+    if (status === 'cancelled') {
+      const reason = window.prompt('Varför ställs matchen in? Orsaken skickas till personalen på planen.', '');
+      if (reason === null) return;
+      await supabase.from('arena_matches').update({ status, change_reason: reason.trim() }).eq('id', id);
+      load();
+      return;
+    }
     await supabase.from('arena_matches').update({ status }).eq('id', id);
     load();
   };
@@ -214,6 +229,7 @@ export default function ArenaDetailClient({ arena, userId }: { arena: Arena; use
             <div><label className="label">{tr('homeTeam')}</label><input className="input" value={mHome} onChange={(e) => setMHome(e.target.value)} /></div>
             <div><label className="label">{tr('awayTeam')}</label><input className="input" value={mAway} onChange={(e) => setMAway(e.target.value)} /></div>
             <div><label className="label">{tr('category')}</label><input className="input" value={mCat} onChange={(e) => setMCat(e.target.value)} /></div>
+            <div><label className="label">Grupp</label><input className="input" value={mGroup} onChange={(e) => setMGroup(e.target.value)} placeholder="t.ex. Grupp A" /></div>
             <div><label className="label">{tn.labels.matchStart}</label><input className="input" type="datetime-local" value={mTime} onChange={(e) => setMTime(e.target.value)} /></div>
             <button className="btn btn-primary" onClick={addMatch}>{tr('addMatch')}</button>
           </div>
@@ -228,6 +244,21 @@ export default function ArenaDetailClient({ arena, userId }: { arena: Arena; use
                       {m.category ? ` · ${m.category}` : ''}
                       {m.group_name ? ` · ${m.group_name}` : ''}
                     </div>
+                    {m.original_starts_at && (
+                      <div className="li-meta" style={{ color: 'var(--danger)' }}>
+                        Flyttad från {fmt(m.original_starts_at)}{m.change_reason ? ` · ${m.change_reason}` : ''}
+                      </div>
+                    )}
+                    {!m.original_starts_at && m.status === 'cancelled' && m.change_reason && (
+                      <div className="li-meta" style={{ color: 'var(--danger)' }}>Inställd · {m.change_reason}</div>
+                    )}
+                    {m.protest && (
+                      <div className="li-meta">
+                        <span className={`badge ${m.protest_status === 'godkänd' ? 'b-resolved' : m.protest_status === 'avslagen' ? 'b-finished' : 'b-medium'}`}>
+                          Protest · {m.protest_status || 'inlämnad'}
+                        </span> {m.protest}
+                      </div>
+                    )}
                     {(m.home_score !== null || m.walkover_team) && (
                       <div className="li-title" style={{ marginTop: 3 }}>
                         {m.walkover_team
@@ -282,6 +313,20 @@ export default function ArenaDetailClient({ arena, userId }: { arena: Arena; use
                       <label className="label">Matchrapport</label>
                       <input className="input" value={sReport} onChange={(e) => setSReport(e.target.value)} />
                     </div>
+                    <div style={{ flex: 2 }}>
+                      <label className="label">Protest</label>
+                      <input className="input" value={sProtest} onChange={(e) => setSProtest(e.target.value)} placeholder="Lämna tomt om ingen protest" />
+                    </div>
+                    {sProtest.trim() && (
+                      <div>
+                        <label className="label">Protestens status</label>
+                        <select className="select" value={sProtestStatus || 'inlämnad'} onChange={(e) => setSProtestStatus(e.target.value)}>
+                          <option value="inlämnad">Inlämnad</option>
+                          <option value="godkänd">Godkänd</option>
+                          <option value="avslagen">Avslagen</option>
+                        </select>
+                      </div>
+                    )}
                     <div style={{ display: 'flex', gap: 6 }}>
                       <button className="btn btn-sm" onClick={() => setScoreFor(null)}>{tr('cancel')}</button>
                       <button className="btn btn-sm btn-primary" onClick={() => saveScore(m)}>{tr('save')}</button>
@@ -304,6 +349,8 @@ export default function ArenaDetailClient({ arena, userId }: { arena: Arena; use
                       </select>
                     </div>
                     <div><label className="label">{tr('notes')}</label><input className="input" value={emRiskNote} onChange={(e) => setEmRiskNote(e.target.value)} /></div>
+                    <div><label className="label">Grupp</label><input className="input" value={emGroup} onChange={(e) => setEmGroup(e.target.value)} /></div>
+                    <div style={{ flex: 2 }}><label className="label">Orsak till ändring</label><input className="input" value={emReason} onChange={(e) => setEmReason(e.target.value)} placeholder="Skickas till personalen om tiden ändras" /></div>
                     <div style={{ display: 'flex', gap: 6 }}>
                       <button className="btn btn-sm" onClick={() => setEditM(null)}>{tr('cancel')}</button>
                       <button className="btn btn-sm btn-primary" onClick={saveMatch}>{tr('save')}</button>

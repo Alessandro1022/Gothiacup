@@ -54,6 +54,10 @@ export default function OnCallTab({ isManager }: { isManager: boolean }) {
   const [fTo, setFTo] = useState(localInput(new Date(start.getTime() + 12 * 3600e3)));
   const [fNote, setFNote] = useState('');
 
+  // Formulären är ihopfällda så att schemat syns först på telefonen
+  const [showShiftForm, setShowShiftForm] = useState(false);
+  const [showNumberForm, setShowNumberForm] = useState(false);
+
   // Nytt nödnummer
   const [nLabel, setNLabel] = useState('');
   const [nPhone, setNPhone] = useState('');
@@ -103,6 +107,7 @@ export default function OnCallTab({ isManager }: { isManager: boolean }) {
     });
     if (error) { setErr(error.message); return; }
     setFNote(''); setFName(''); setFPhone('');
+    setShowShiftForm(false);
     setOk('Jourpasset är upplagt.');
     load();
   };
@@ -123,6 +128,7 @@ export default function OnCallTab({ isManager }: { isManager: boolean }) {
     });
     if (error) { setErr(error.message); return; }
     setNLabel(''); setNPhone('');
+    setShowNumberForm(false);
     load();
   };
 
@@ -194,7 +200,12 @@ export default function OnCallTab({ isManager }: { isManager: boolean }) {
         )}
       </div>
 
-      {isManager && (
+      {isManager && !showShiftForm && (
+        <button className="btn btn-primary" style={{ marginBottom: 18 }} onClick={() => { setShowShiftForm(true); setOk(''); }}>
+          <Plus size={15} /> Lägg upp jourpass
+        </button>
+      )}
+      {isManager && showShiftForm && (
         <>
           <h2 style={{ marginBottom: 8 }}>Lägg upp jourpass</h2>
           <div className="inline-form cols">
@@ -234,7 +245,10 @@ export default function OnCallTab({ isManager }: { isManager: boolean }) {
               <label className="label">Anteckning</label>
               <input className="input" value={fNote} onChange={(e) => setFNote(e.target.value)} placeholder="t.ex. nås via radio kanal 3" />
             </div>
-            <button className="btn btn-primary" onClick={addShift}><Plus size={15} /> Lägg upp</button>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button className="btn btn-primary" onClick={addShift}><Plus size={15} /> Lägg upp</button>
+              <button className="btn" onClick={() => setShowShiftForm(false)}>Avbryt</button>
+            </div>
           </div>
           {fUser && !person?.phone && !fPhone && (
             <div className="li-meta" style={{ marginTop: -8, marginBottom: 12 }}>
@@ -302,7 +316,12 @@ export default function OnCallTab({ isManager }: { isManager: boolean }) {
           </div>
         ))}
       </div>
-      {isManager && (
+      {isManager && !showNumberForm && (
+        <button className="btn btn-sm" onClick={() => setShowNumberForm(true)}>
+          <Plus size={14} /> Nytt nödnummer
+        </button>
+      )}
+      {isManager && showNumberForm && (
         <div className="inline-form cols">
           <div style={{ flex: 2 }}>
             <label className="label">Benämning</label>
@@ -318,9 +337,12 @@ export default function OnCallTab({ isManager }: { isManager: boolean }) {
               {Object.entries(KIND_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </div>
-          <button className="btn btn-primary" onClick={addNumber} disabled={!nLabel.trim() || !nPhone.trim()}>
-            <Plus size={15} /> Lägg till
-          </button>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button className="btn btn-primary" onClick={addNumber} disabled={!nLabel.trim() || !nPhone.trim()}>
+              <Plus size={15} /> Lägg till
+            </button>
+            <button className="btn" onClick={() => setShowNumberForm(false)}>Avbryt</button>
+          </div>
         </div>
       )}
 

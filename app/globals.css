@@ -826,3 +826,27 @@ button.map-li:active { transform: scale(.985); }
 .notice-card:active { transform: scale(.98); }
 .emerg-card { margin-bottom: 14px; background: #FFF6E0; border-color: #F3DFA6; }
 .emerg-card .li-title { display: flex; align-items: center; gap: 6px; color: #8A6A12; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; }
+
+/* ================================================================
+   DOMARE OCH TABELLER
+   ================================================================ */
+.ref-schedule { margin-top: 10px; display: grid; gap: 4px; }
+.ref-match {
+  display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: baseline;
+  font-size: 13px; padding: 6px 10px; border-radius: 10px; background: var(--bg);
+}
+.ref-match .mono { font-size: 12px; color: var(--muted); }
+.ref-match.clash { background: #FDF1F1; }
+.ref-match.clash b { color: var(--danger); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+
+.standings { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+.standings th, .standings td { padding: 7px 2px; text-align: center; border-bottom: 1px solid var(--line); }
+.standings th { font-size: 11px; color: var(--muted); font-weight: 700; }
+.standings th:nth-child(n+2), .standings td:nth-child(n+2) { width: 9%; }
+.standings th:nth-child(6), .standings td:nth-child(6) { width: 15%; }
+.standings .team { text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.standings .pos {
+  display: inline-grid; place-items: center; width: 18px; height: 18px; margin-right: 6px;
+  border-radius: 50%; background: var(--bg); font-size: 10.5px; font-weight: 800; color: var(--muted);
+}
+.standings tr:last-child td { border-bottom: none; }

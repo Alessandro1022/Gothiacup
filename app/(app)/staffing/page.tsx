@@ -3,7 +3,7 @@ import StaffingClient, { type StaffingTab } from '@/components/staffing/Staffing
 import { assertModule } from '@/lib/modules';
 import type { Role } from '@/lib/types';
 
-const TABS: StaffingTab[] = ['brister', 'jour', 'franvaro', 'tillganglighet', 'intro'];
+const TABS: StaffingTab[] = ['brister', 'jour', 'franvaro', 'tillganglighet', 'intro', 'checklistor'];
 
 // ?tab=jour öppnar jourschemat direkt, t.ex. från jourpanelen i topbaren
 export default async function StaffingPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {

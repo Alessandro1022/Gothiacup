@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/client';
 import { tierOf, type Role, ROLE_LABELS } from '@/lib/types';
 import OnCallTab from '@/components/staffing/OnCallTab';
 import IntroTab, { appliesTo } from '@/components/staffing/IntroTab';
+import ChecklistAdmin from '@/components/checklists/ChecklistAdmin';
 
 type Gap = {
   shift_id: string; starts_at: string; ends_at: string; role_note: string | null;
@@ -22,7 +23,7 @@ type Absence = {
 type Person = { id: string; full_name: string; role: Role };
 type Avail = { id: string; user_id: string; day: string; kind: string; note: string };
 
-export type StaffingTab = 'brister' | 'jour' | 'franvaro' | 'tillganglighet' | 'intro';
+export type StaffingTab = 'brister' | 'jour' | 'franvaro' | 'tillganglighet' | 'intro' | 'checklistor';
 
 const GAP_LABEL: Record<string, string> = {
   obemannat: 'Obemannat',
@@ -46,7 +47,8 @@ export default function StaffingClient({ userId, role, initialTab }: {
   const isManager = tier >= 4;
 
   const [tab, setTab] = useState<StaffingTab>(
-    initialTab && (initialTab !== 'brister' || isManager) ? initialTab : (isManager ? 'brister' : 'jour')
+    initialTab && ((initialTab !== 'brister' && initialTab !== 'checklistor') || isManager)
+      ? initialTab : (isManager ? 'brister' : 'jour')
   );
   const [gaps, setGaps] = useState<Gap[]>([]);
   const [absences, setAbsences] = useState<Absence[]>([]);
@@ -90,6 +92,12 @@ export default function StaffingClient({ userId, role, initialTab }: {
   }, [supabase, userId, isManager, role]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Fliken man länkats till kan ligga utanför skärmen på en telefon
+  useEffect(() => {
+    if (loading) return;
+    document.querySelector('.tabs .tab.active')?.scrollIntoView({ inline: 'center', block: 'nearest' });
+  }, [tab, loading]);
 
   const addAbsence = async () => {
     const who = isManager ? (aUser || userId) : userId;
@@ -168,6 +176,11 @@ export default function StaffingClient({ userId, role, initialTab }: {
         <button className={`tab ${tab === 'intro' ? 'active' : ''}`} onClick={() => setTab('intro')}>
           Introduktion {introLeft > 0 && <span className="mono">{introLeft}</span>}
         </button>
+        {isManager && (
+          <button className={`tab ${tab === 'checklistor' ? 'active' : ''}`} onClick={() => setTab('checklistor')}>
+            Checklistor
+          </button>
+        )}
       </div>
 
       {tab === 'brister' && isManager && (
@@ -351,6 +364,8 @@ export default function StaffingClient({ userId, role, initialTab }: {
           )}
         </>
       )}
+
+      {tab === 'checklistor' && isManager && <ChecklistAdmin />}
 
       {tab === 'intro' && <IntroTab userId={userId} role={role} isManager={isManager} onChange={load} />}
     </>

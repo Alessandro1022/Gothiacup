@@ -7,6 +7,7 @@ import { useLang } from '@/components/LanguageProvider';
 import TeamRoster from '@/components/schools/TeamRoster';
 import { useTenant } from '@/components/TenantProvider';
 import EmergencyCard from '@/components/EmergencyCard';
+import ChecklistRuns from '@/components/checklists/ChecklistRuns';
 
 type School = { id: string; name: string; address: string | null; capacity: number };
 type Team = { id: string; team_name: string; country: string | null; group_size: number; contact_name: string | null; contact_phone: string | null; status: string; classroom_id: string | null; age_class: string; club_name: string; arrival_date: string | null; departure_date: string | null };
@@ -17,7 +18,7 @@ type Issue = { id: string; title: string; description: string | null; status: st
 type Round = { id: string; all_ok: boolean; notes: string | null; performed_at: string };
 type RoomKey = { id: string; label: string; status: string; holder_name: string | null };
 
-type Tab = 'teams' | 'rooms' | 'issues' | 'rounds' | 'keys';
+type Tab = 'teams' | 'rooms' | 'issues' | 'rounds' | 'checklists' | 'keys';
 
 export default function SchoolDetailClient({ school, userId }: { school: School; userId: string }) {
   const { tr } = useLang();
@@ -209,6 +210,7 @@ export default function SchoolDetailClient({ school, userId }: { school: School;
         <button className={`tab ${tab === 'rooms' ? 'active' : ''}`} onClick={() => setTab('rooms')}>{tr('classrooms')} <span className="mono">{rooms.length}</span></button>
         <button className={`tab ${tab === 'issues' ? 'active' : ''}`} onClick={() => setTab('issues')}>{tr('issues')} <span className="mono">{issues.filter((i) => i.status !== 'resolved').length}</span></button>
         <button className={`tab ${tab === 'rounds' ? 'active' : ''}`} onClick={() => setTab('rounds')}>{tr('nightRounds')}</button>
+        <button className={`tab ${tab === 'checklists' ? 'active' : ''}`} onClick={() => setTab('checklists')}>{tr('checklists')}</button>
         <button className={`tab ${tab === 'keys' ? 'active' : ''}`} onClick={() => setTab('keys')}>{tr('roomKeys')}</button>
       </div>
 
@@ -368,6 +370,8 @@ export default function SchoolDetailClient({ school, userId }: { school: School;
           </div>
         </>
       )}
+
+      {tab === 'checklists' && <ChecklistRuns locationType="school" locationId={school.id} userId={userId} />}
 
       {tab === 'keys' && (
         <>

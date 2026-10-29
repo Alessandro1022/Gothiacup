@@ -6,15 +6,13 @@ import { createClient } from '@/lib/supabase/client';
 import { useLang } from '@/components/LanguageProvider';
 import { useTenant } from '@/components/TenantProvider';
 import EmergencyCard from '@/components/EmergencyCard';
+import ChecklistRuns from '@/components/checklists/ChecklistRuns';
 
 type Arena = { id: string; name: string; address: string | null; surface_count: number };
 type Match = { id: string; surface_label: string; home_team: string; away_team: string; category: string | null; starts_at: string; status: string; risk_level: string; risk_note: string | null; home_score: number | null; away_score: number | null; group_name: string; walkover_team: string; report: string; referee_id: string | null; original_starts_at: string | null; change_reason: string; protest: string; protest_status: string };
 type Referee = { id: string; full_name: string; phone: string; active: boolean };
 type SecLog = { id: string; entry: string; severity: string; created_at: string };
 type Crowd = { id: string; count: number; created_at: string };
-type Template = { id: string; name: string; items: string[] };
-type Run = { id: string; template_name: string; status: string; created_at: string };
-type Item = { id: string; run_id: string; label: string; done: boolean };
 
 type Tab = 'matches' | 'security' | 'crowd' | 'checklists';
 const MATCH_STATUSES = ['scheduled', 'ongoing', 'finished', 'cancelled'] as const;
@@ -27,9 +25,6 @@ export default function ArenaDetailClient({ arena, userId }: { arena: Arena; use
   const [matches, setMatches] = useState<Match[]>([]);
   const [logs, setLogs] = useState<SecLog[]>([]);
   const [crowd, setCrowd] = useState<Crowd[]>([]);
-  const [templates, setTemplates] = useState<Template[]>([]);
-  const [runs, setRuns] = useState<Run[]>([]);
-  const [items, setItems] = useState<Item[]>([]);
 
   // Formulär
   const [mSurf, setMSurf] = useState(''); const [mHome, setMHome] = useState(''); const [mAway, setMAway] = useState('');
@@ -37,7 +32,6 @@ export default function ArenaDetailClient({ arena, userId }: { arena: Arena; use
   const [mGroup, setMGroup] = useState('');
   const [sEntry, setSEntry] = useState(''); const [sSev, setSSev] = useState('low');
   const [cCount, setCCount] = useState('');
-  const [tmplId, setTmplId] = useState('');
   const [editM, setEditM] = useState<Match | null>(null);
   const [referees, setReferees] = useState<Referee[]>([]);
   const [scoreFor, setScoreFor] = useState<string | null>(null);
@@ -50,26 +44,16 @@ export default function ArenaDetailClient({ arena, userId }: { arena: Arena; use
   const [emRisk, setEmRisk] = useState('green'); const [emRiskNote, setEmRiskNote] = useState('');
 
   const load = useCallback(async () => {
-    const [m, s, c, t, r, ref] = await Promise.all([
+    const [m, s, c, ref] = await Promise.all([
       supabase.from('arena_matches').select('id,surface_label,home_team,away_team,category,starts_at,status,risk_level,risk_note,home_score,away_score,group_name,walkover_team,report,referee_id,original_starts_at,change_reason,protest,protest_status').eq('arena_id', arena.id).order('starts_at'),
       supabase.from('security_logs').select('id,entry,severity,created_at').eq('arena_id', arena.id).order('created_at', { ascending: false }).limit(30),
       supabase.from('crowd_counts').select('id,count,created_at').eq('arena_id', arena.id).order('created_at', { ascending: false }).limit(12),
-      supabase.from('checklist_templates').select('id,name,items').eq('location_type', 'arena'),
-      supabase.from('checklist_runs').select('id,template_name,status,created_at').eq('location_type', 'arena').eq('location_id', arena.id).order('created_at', { ascending: false }).limit(10),
       supabase.from('referees').select('id,full_name,phone,active').eq('active', true).order('full_name')
     ]);
     setMatches((m.data ?? []) as Match[]);
     setReferees((ref.data ?? []) as Referee[]);
     setLogs((s.data ?? []) as SecLog[]);
     setCrowd((c.data ?? []) as Crowd[]);
-    setTemplates((t.data ?? []) as Template[]);
-    const runList = (r.data ?? []) as Run[];
-    setRuns(runList);
-    if (runList.length) {
-      const { data: it } = await supabase.from('checklist_items').select('id,run_id,label,done')
-        .in('run_id', runList.map((x) => x.id)).order('sort');
-      setItems((it ?? []) as Item[]);
-    } else setItems([]);
   }, [supabase, arena.id]);
 
   useEffect(() => {
@@ -77,7 +61,6 @@ export default function ArenaDetailClient({ arena, userId }: { arena: Arena; use
     const ch = supabase.channel(`arena-${arena.id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'security_logs' }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'crowd_counts' }, load)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'checklist_items' }, load)
       .subscribe();
     return () => { supabase.removeChannel(ch); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -171,33 +154,6 @@ export default function ArenaDetailClient({ arena, userId }: { arena: Arena; use
     await supabase.from('crowd_counts').insert({ arena_id: arena.id, count: parseInt(cCount) || 0, noted_by: userId });
     setCCount(''); load();
   };
-  const startRun = async () => {
-    const tmpl = templates.find((t) => t.id === tmplId);
-    if (!tmpl) return;
-    const { data: run } = await supabase.from('checklist_runs')
-      .insert({ template_id: tmpl.id, template_name: tmpl.name, location_type: 'arena', location_id: arena.id, started_by: userId })
-      .select('id').single();
-    if (run) {
-      await supabase.from('checklist_items').insert(
-        tmpl.items.map((label, i) => ({ run_id: run.id, label, sort: i }))
-      );
-    }
-    setTmplId(''); load();
-  };
-  const toggleItem = async (it: Item) => {
-    await supabase.from('checklist_items').update({
-      done: !it.done, done_by: !it.done ? userId : null, done_at: !it.done ? new Date().toISOString() : null
-    }).eq('id', it.id);
-    // Klarmarkera körningen automatiskt om alla punkter är klara
-    const runItems = items.map((x) => x.id === it.id ? { ...x, done: !it.done } : x).filter((x) => x.run_id === it.run_id);
-    if (runItems.every((x) => x.done)) {
-      await supabase.from('checklist_runs').update({ status: 'done', completed_at: new Date().toISOString() }).eq('id', it.run_id);
-    } else {
-      await supabase.from('checklist_runs').update({ status: 'open', completed_at: null }).eq('id', it.run_id);
-    }
-    load();
-  };
-
   const latestCount = crowd[0]?.count ?? null;
 
   return (
@@ -415,40 +371,7 @@ export default function ArenaDetailClient({ arena, userId }: { arena: Arena; use
         </>
       )}
 
-      {tab === 'checklists' && (
-        <>
-          <div className="inline-form cols">
-            <div><label className="label">{tr('checklists')}</label>
-              <select className="select" value={tmplId} onChange={(e) => setTmplId(e.target.value)}>
-                <option value="">—</option>
-                {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-              </select>
-            </div>
-            <button className="btn btn-primary" disabled={!tmplId} onClick={startRun}>{tr('startRun')}</button>
-          </div>
-          {runs.map((r) => {
-            const runItems = items.filter((i) => i.run_id === r.id);
-            const doneCount = runItems.filter((i) => i.done).length;
-            return (
-              <div key={r.id} style={{ marginBottom: 18 }}>
-                <div className="row-between">
-                  <div className="li-title">{r.template_name} <span className="li-meta mono">{fmt(r.created_at)}</span></div>
-                  <span className={`badge b-${r.status}`}>{r.status === 'done' ? tr('tDone') : `${doneCount}/${runItems.length}`}</span>
-                </div>
-                <div className="prog" style={{ marginBottom: 10 }}><div style={{ width: runItems.length ? `${(doneCount / runItems.length) * 100}%` : '0%' }} /></div>
-                <div className="list">
-                  {runItems.map((it) => (
-                    <label key={it.id} className={`check-row ${it.done ? 'done' : ''}`}>
-                      <input type="checkbox" checked={it.done} onChange={() => toggleItem(it)} /> {it.label}
-                    </label>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-          {runs.length === 0 && <div className="page-sub">{tr('nothingHere')}</div>}
-        </>
-      )}
+      {tab === 'checklists' && <ChecklistRuns locationType="arena" locationId={arena.id} userId={userId} />}
     </>
   );
 }

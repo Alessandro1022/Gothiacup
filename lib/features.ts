@@ -3,7 +3,9 @@ export const FEATURE_KEYS = [
   'incidents', 'tasks', 'shifts',
   'areas', 'schools', 'arenas', 'map',
   'news', 'chat', 'docs',
-  'reports', 'ai', 'crisis', 'staff', 'history', 'structure'
+  'reports', 'ai', 'crisis', 'staff', 'history', 'structure',
+  // Etapp 2
+  'stock'
 ] as const;
 
 export type FeatureKey = typeof FEATURE_KEYS[number];
@@ -14,7 +16,8 @@ export const FEATURE_LABELS: Record<FeatureKey, string> = {
   areas: 'Områden', schools: 'Boende', arenas: 'Spelplatser', map: 'Karta',
   news: 'Nyheter', chat: 'Chatt', docs: 'Dokument',
   reports: 'Rapporter', ai: 'AI-assistent', crisis: 'Krisläge',
-  staff: 'Personal', history: 'Historik', structure: 'Struktur'
+  staff: 'Personal', history: 'Historik', structure: 'Struktur',
+  stock: 'Lager'
 };
 
 export type TenantColors = {

@@ -7,7 +7,8 @@ import { useLang } from '@/components/LanguageProvider';
 import { tenant } from '@/lib/tenant';
 
 type Arena = { id: string; name: string; address: string | null; surface_count: number };
-type Match = { id: string; surface_label: string; home_team: string; away_team: string; category: string | null; starts_at: string; status: string; risk_level: string; risk_note: string | null };
+type Match = { id: string; surface_label: string; home_team: string; away_team: string; category: string | null; starts_at: string; status: string; risk_level: string; risk_note: string | null; home_score: number | null; away_score: number | null; group_name: string; walkover_team: string; report: string; referee_id: string | null };
+type Referee = { id: string; full_name: string; phone: string; active: boolean };
 type SecLog = { id: string; entry: string; severity: string; created_at: string };
 type Crowd = { id: string; count: number; created_at: string };
 type Template = { id: string; name: string; items: string[] };
@@ -35,19 +36,25 @@ export default function ArenaDetailClient({ arena, userId }: { arena: Arena; use
   const [cCount, setCCount] = useState('');
   const [tmplId, setTmplId] = useState('');
   const [editM, setEditM] = useState<Match | null>(null);
+  const [referees, setReferees] = useState<Referee[]>([]);
+  const [scoreFor, setScoreFor] = useState<string | null>(null);
+  const [sHome, setSHome] = useState(''); const [sAway, setSAway] = useState('');
+  const [sReport, setSReport] = useState(''); const [sWo, setSWo] = useState('');
   const [emSurf, setEmSurf] = useState(''); const [emHome, setEmHome] = useState(''); const [emAway, setEmAway] = useState('');
   const [emCat, setEmCat] = useState(''); const [emTime, setEmTime] = useState('');
   const [emRisk, setEmRisk] = useState('green'); const [emRiskNote, setEmRiskNote] = useState('');
 
   const load = useCallback(async () => {
-    const [m, s, c, t, r] = await Promise.all([
-      supabase.from('arena_matches').select('id,surface_label,home_team,away_team,category,starts_at,status').eq('arena_id', arena.id).order('starts_at'),
+    const [m, s, c, t, r, ref] = await Promise.all([
+      supabase.from('arena_matches').select('id,surface_label,home_team,away_team,category,starts_at,status,risk_level,risk_note,home_score,away_score,group_name,walkover_team,report,referee_id').eq('arena_id', arena.id).order('starts_at'),
       supabase.from('security_logs').select('id,entry,severity,created_at').eq('arena_id', arena.id).order('created_at', { ascending: false }).limit(30),
       supabase.from('crowd_counts').select('id,count,created_at').eq('arena_id', arena.id).order('created_at', { ascending: false }).limit(12),
       supabase.from('checklist_templates').select('id,name,items').eq('location_type', 'arena'),
-      supabase.from('checklist_runs').select('id,template_name,status,created_at').eq('location_type', 'arena').eq('location_id', arena.id).order('created_at', { ascending: false }).limit(10)
+      supabase.from('checklist_runs').select('id,template_name,status,created_at').eq('location_type', 'arena').eq('location_id', arena.id).order('created_at', { ascending: false }).limit(10),
+      supabase.from('referees').select('id,full_name,phone,active').eq('active', true).order('full_name')
     ]);
     setMatches((m.data ?? []) as Match[]);
+    setReferees((ref.data ?? []) as Referee[]);
     setLogs((s.data ?? []) as SecLog[]);
     setCrowd((c.data ?? []) as Crowd[]);
     setTemplates((t.data ?? []) as Template[]);
@@ -104,6 +111,31 @@ export default function ArenaDetailClient({ arena, userId }: { arena: Arena; use
     }).eq('id', editM.id);
     setEditM(null); load();
   };
+  const openScore = (m: Match) => {
+    setScoreFor(m.id);
+    setSHome(m.home_score === null ? '' : String(m.home_score));
+    setSAway(m.away_score === null ? '' : String(m.away_score));
+    setSReport(m.report ?? ''); setSWo(m.walkover_team ?? '');
+  };
+  const saveScore = async (m: Match) => {
+    const { data: u } = await supabase.auth.getUser();
+    await supabase.from('arena_matches').update({
+      home_score: sWo ? null : (sHome === '' ? null : parseInt(sHome)),
+      away_score: sWo ? null : (sAway === '' ? null : parseInt(sAway)),
+      walkover_team: sWo,
+      report: sReport,
+      reported_by: u?.user?.id ?? null,
+      reported_at: new Date().toISOString(),
+      // Tabellen raknar bara avslutade matcher
+      status: 'finished'
+    }).eq('id', m.id);
+    setScoreFor(null); load();
+  };
+  const setReferee = async (m: Match, id: string) => {
+    await supabase.from('arena_matches').update({ referee_id: id || null }).eq('id', m.id);
+    load();
+  };
+
   const removeMatch = async (m: Match) => {
     if (!confirm(tr('confirmDelete'))) return;
     await supabase.from('arena_matches').delete().eq('id', m.id); load();
@@ -182,7 +214,23 @@ export default function ArenaDetailClient({ arena, userId }: { arena: Arena; use
                 <div className="li-head">
                   <div>
                     <div className="li-title">{m.home_team} — {m.away_team}</div>
-                    <div className="li-meta mono">{m.surface_label} · {tenant.labels.matchStart} {fmt(m.starts_at)}{m.category ? ` · ${m.category}` : ''}</div>
+                    <div className="li-meta mono">
+                      {m.surface_label} · {tenant.labels.matchStart} {fmt(m.starts_at)}
+                      {m.category ? ` · ${m.category}` : ''}
+                      {m.group_name ? ` · ${m.group_name}` : ''}
+                    </div>
+                    {(m.home_score !== null || m.walkover_team) && (
+                      <div className="li-title" style={{ marginTop: 3 }}>
+                        {m.walkover_team
+                          ? `Walkover · ${m.walkover_team} uteblev`
+                          : `${m.home_score} – ${m.away_score}`}
+                      </div>
+                    )}
+                    {m.referee_id && (
+                      <div className="li-meta">
+                        Domare: {referees.find((r) => r.id === m.referee_id)?.full_name ?? '—'}
+                      </div>
+                    )}
                   </div>
                   <span className={`badge b-${m.status}`}>{m.status === 'ongoing' && <span className="pulse" />}{msLabel(m.status)}</span>
                 </div>
@@ -190,9 +238,48 @@ export default function ArenaDetailClient({ arena, userId }: { arena: Arena; use
                   {MATCH_STATUSES.filter((s) => s !== m.status).map((s) => (
                     <button key={s} className="btn btn-sm" onClick={() => setMatchStatus(m.id, s)}>{msLabel(s)}</button>
                   ))}
+                  <button className="btn btn-sm btn-primary" onClick={() => openScore(m)}>Resultat</button>
+                  {referees.length > 0 && (
+                    <select className="select" style={{ width: 'auto', padding: '5px 8px', fontSize: 12 }}
+                      value={m.referee_id ?? ''} onChange={(e) => setReferee(m, e.target.value)}>
+                      <option value="">Domare: ingen</option>
+                      {referees.map((r) => <option key={r.id} value={r.id}>{r.full_name}</option>)}
+                    </select>
+                  )}
                   <button className="btn btn-sm" onClick={() => openEditMatch(m)}>{tr('edit')}</button>
                   <button className="btn btn-sm btn-danger" onClick={() => removeMatch(m)}>{tr('deleteLbl')}</button>
                 </div>
+                {scoreFor === m.id && (
+                  <div className="inline-form cols" style={{ marginTop: 10, marginBottom: 0 }}>
+                    <div>
+                      <label className="label">{m.home_team}</label>
+                      <input className="input" inputMode="numeric" value={sHome} disabled={!!sWo}
+                        onChange={(e) => setSHome(e.target.value.replace(/\D/g, ''))} />
+                    </div>
+                    <div>
+                      <label className="label">{m.away_team}</label>
+                      <input className="input" inputMode="numeric" value={sAway} disabled={!!sWo}
+                        onChange={(e) => setSAway(e.target.value.replace(/\D/g, ''))} />
+                    </div>
+                    <div>
+                      <label className="label">Walkover</label>
+                      <select className="select" value={sWo} onChange={(e) => setSWo(e.target.value)}>
+                        <option value="">Nej</option>
+                        <option value={m.home_team}>{m.home_team} uteblev</option>
+                        <option value={m.away_team}>{m.away_team} uteblev</option>
+                      </select>
+                    </div>
+                    <div style={{ flex: 2 }}>
+                      <label className="label">Matchrapport</label>
+                      <input className="input" value={sReport} onChange={(e) => setSReport(e.target.value)} />
+                    </div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button className="btn btn-sm" onClick={() => setScoreFor(null)}>{tr('cancel')}</button>
+                      <button className="btn btn-sm btn-primary" onClick={() => saveScore(m)}>{tr('save')}</button>
+                    </div>
+                  </div>
+                )}
+
                 {editM?.id === m.id && (
                   <div className="inline-form cols" style={{ marginTop: 10, marginBottom: 0 }}>
                     <div><label className="label">{tenant.labels.playingArea}</label><input className="input" value={emSurf} onChange={(e) => setEmSurf(e.target.value)} /></div>

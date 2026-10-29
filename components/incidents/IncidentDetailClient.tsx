@@ -6,7 +6,7 @@ import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useLang } from '@/components/LanguageProvider';
 import { tierOf, type Role } from '@/lib/types';
-import { tenant } from '@/lib/tenant';
+import { useTenant } from '@/components/TenantProvider';
 import RowHistory from '@/components/history/RowHistory';
 
 type Inc = {
@@ -21,6 +21,8 @@ type Person = { id: string; full_name: string };
 const SEVS = ['low', 'medium', 'high', 'critical'] as const;
 
 export default function IncidentDetailClient({ incidentId, userId, role }: { incidentId: string; userId: string; role: Role }) {
+  // Turneringens egna namn och etiketter, inte den statiska standarden
+  const tenant = useTenant();
   const { tr } = useLang();
   const supabase = createClient();
   const router = useRouter();

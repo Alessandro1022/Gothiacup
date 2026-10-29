@@ -8,10 +8,12 @@ type Area = { id: string; name: string };
 type School = {
   id: string; name: string; address: string | null; capacity: number; area_id: string | null;
   lat: number | null; lng: number | null; coord_raw: string | null; coord_flagged: boolean;
+  assembly_point?: string; nearest_care?: string; emergency_note?: string;
 };
 type Arena = {
   id: string; name: string; address: string | null; surface_count: number; area_id: string | null;
   lat: number | null; lng: number | null; club: string | null; contact_name: string | null; contact_phone: string | null;
+  assembly_point?: string; nearest_care?: string; emergency_note?: string;
 };
 
 type Tab = 'schools' | 'arenas' | 'areas' | 'coords';
@@ -33,13 +35,18 @@ export default function StructureClient() {
   const [fLat, setFLat] = useState(''); const [fLng, setFLng] = useState('');
   const [fClub, setFClub] = useState(''); const [fContact, setFContact] = useState('');
   const [fPhone, setFPhone] = useState('');
+  // Nödinfo (del 17): återsamlingsplats, närmaste vård, övrigt
+  const [fAssembly, setFAssembly] = useState(''); const [fCare, setFCare] = useState('');
+  const [fEmerg, setFEmerg] = useState('');
   const [newArea, setNewArea] = useState('');
 
   const load = useCallback(async () => {
     const [{ data: a }, { data: s }, { data: ar }] = await Promise.all([
       supabase.from('areas').select('id,name').order('name'),
-      supabase.from('schools').select('id,name,address,capacity,area_id,lat,lng,coord_raw,coord_flagged').order('name'),
-      supabase.from('arenas').select('id,name,address,surface_count,area_id,lat,lng,club,contact_name,contact_phone').order('name')
+      // select('*'): kolumner från senare delar (nödinfo) finns kanske inte
+      // än, och då ska sidan fungera som förut i stället för att gå sönder.
+      supabase.from('schools').select('*').order('name'),
+      supabase.from('arenas').select('*').order('name')
     ]);
     setAreas((a ?? []) as Area[]);
     setSchools((s ?? []) as School[]);
@@ -52,9 +59,19 @@ export default function StructureClient() {
   const reset = () => {
     setEditId(null); setFName(''); setFAddr(''); setFArea(''); setFCap('');
     setFLat(''); setFLng(''); setFClub(''); setFContact(''); setFPhone('');
+    setFAssembly(''); setFCare(''); setFEmerg('');
   };
 
   const areaName = (id: string | null) => areas.find((a) => a.id === id)?.name ?? '—';
+  // Finns nödinfo-kolumnerna? Annars skickas fälten inte med, så att en
+  // databas utan del 17 inte svarar med fel på varje sparning.
+  const hasEmerg = [...schools, ...arenas].some((x) => 'assembly_point' in x);
+  const emergPayload = (): Record<string, string> => (hasEmerg
+    ? { assembly_point: fAssembly.trim(), nearest_care: fCare.trim(), emergency_note: fEmerg.trim() }
+    : {});
+  const loadEmerg = (x: { assembly_point?: string; nearest_care?: string; emergency_note?: string }) => {
+    setFAssembly(x.assembly_point ?? ''); setFCare(x.nearest_care ?? ''); setFEmerg(x.emergency_note ?? '');
+  };
   const num = (v: string) => (v.trim() === '' ? null : Number(v.replace(',', '.')));
 
   // ---- Skolor ----
@@ -62,6 +79,7 @@ export default function StructureClient() {
     setEditId(s.id); setFName(s.name); setFAddr(s.address ?? '');
     setFArea(s.area_id ?? ''); setFCap(String(s.capacity));
     setFLat(s.lat === null ? '' : String(s.lat)); setFLng(s.lng === null ? '' : String(s.lng));
+    loadEmerg(s);
   };
   const saveSchool = async () => {
     setErr('');
@@ -69,7 +87,8 @@ export default function StructureClient() {
     const payload = {
       name: fName, address: fAddr || null, area_id: fArea || null,
       capacity: parseInt(fCap) || 0, lat, lng,
-      coord_flagged: lat !== null && lng !== null ? false : undefined
+      coord_flagged: lat !== null && lng !== null ? false : undefined,
+      ...emergPayload()
     };
     const { error } = editId
       ? await supabase.from('schools').update(payload).eq('id', editId)
@@ -90,13 +109,15 @@ export default function StructureClient() {
     setFArea(a.area_id ?? ''); setFCap(String(a.surface_count));
     setFLat(a.lat === null ? '' : String(a.lat)); setFLng(a.lng === null ? '' : String(a.lng));
     setFClub(a.club ?? ''); setFContact(a.contact_name ?? ''); setFPhone(a.contact_phone ?? '');
+    loadEmerg(a);
   };
   const saveArena = async () => {
     setErr('');
     const payload = {
       name: fName, address: fAddr || null, area_id: fArea || null,
       surface_count: parseInt(fCap) || 1, lat: num(fLat), lng: num(fLng),
-      club: fClub || null, contact_name: fContact || null, contact_phone: fPhone || null
+      club: fClub || null, contact_name: fContact || null, contact_phone: fPhone || null,
+      ...emergPayload()
     };
     const { error } = editId
       ? await supabase.from('arenas').update(payload).eq('id', editId)
@@ -173,6 +194,13 @@ export default function StructureClient() {
             <div><label className="label">Kapacitet</label><input className="input" type="number" value={fCap} onChange={(e) => setFCap(e.target.value)} /></div>
             <div><label className="label">Latitud</label><input className="input" value={fLat} onChange={(e) => setFLat(e.target.value)} placeholder="57.700667" /></div>
             <div><label className="label">Longitud</label><input className="input" value={fLng} onChange={(e) => setFLng(e.target.value)} placeholder="11.986500" /></div>
+            {hasEmerg && (
+              <>
+                <div><label className="label">Återsamlingsplats</label><input className="input" value={fAssembly} onChange={(e) => setFAssembly(e.target.value)} placeholder="t.ex. skolgården vid flaggstången" /></div>
+                <div><label className="label">Närmaste vård</label><input className="input" value={fCare} onChange={(e) => setFCare(e.target.value)} placeholder="t.ex. Sahlgrenska akuten" /></div>
+                <div><label className="label">Nödinfo</label><input className="input" value={fEmerg} onChange={(e) => setFEmerg(e.target.value)} placeholder="t.ex. hjärtstartare i entrén" /></div>
+              </>
+            )}
             <div style={{ display: 'flex', gap: 6 }}>
               <button className="btn btn-primary" onClick={saveSchool} disabled={!fName}>{editId ? 'Spara' : 'Lägg till'}</button>
               {editId && <button className="btn" onClick={reset}>Avbryt</button>}
@@ -224,6 +252,13 @@ export default function StructureClient() {
             <div><label className="label">Telefon</label><input className="input" value={fPhone} onChange={(e) => setFPhone(e.target.value)} /></div>
             <div><label className="label">Latitud</label><input className="input" value={fLat} onChange={(e) => setFLat(e.target.value)} /></div>
             <div><label className="label">Longitud</label><input className="input" value={fLng} onChange={(e) => setFLng(e.target.value)} /></div>
+            {hasEmerg && (
+              <>
+                <div><label className="label">Återsamlingsplats</label><input className="input" value={fAssembly} onChange={(e) => setFAssembly(e.target.value)} placeholder="t.ex. skolgården vid flaggstången" /></div>
+                <div><label className="label">Närmaste vård</label><input className="input" value={fCare} onChange={(e) => setFCare(e.target.value)} placeholder="t.ex. Sahlgrenska akuten" /></div>
+                <div><label className="label">Nödinfo</label><input className="input" value={fEmerg} onChange={(e) => setFEmerg(e.target.value)} placeholder="t.ex. hjärtstartare i entrén" /></div>
+              </>
+            )}
             <div style={{ display: 'flex', gap: 6 }}>
               <button className="btn btn-primary" onClick={saveArena} disabled={!fName}>{editId ? 'Spara' : 'Lägg till'}</button>
               {editId && <button className="btn" onClick={reset}>Avbryt</button>}

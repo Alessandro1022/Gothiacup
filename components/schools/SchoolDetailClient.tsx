@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useLang } from '@/components/LanguageProvider';
 import TeamRoster from '@/components/schools/TeamRoster';
 import { useTenant } from '@/components/TenantProvider';
+import EmergencyCard from '@/components/EmergencyCard';
 
 type School = { id: string; name: string; address: string | null; capacity: number };
 type Team = { id: string; team_name: string; country: string | null; group_size: number; contact_name: string | null; contact_phone: string | null; status: string; classroom_id: string | null; age_class: string; club_name: string; arrival_date: string | null; departure_date: string | null };
@@ -200,6 +201,8 @@ export default function SchoolDetailClient({ school, userId }: { school: School;
           <> · <Link href={`/map?p=school:${school.id}`} className="map-link"><MapPin size={13} /> Visa på kartan</Link></>
         )}
       </div>
+
+      <EmergencyCard table="schools" id={school.id} />
 
       <div className="tabs">
         <button className={`tab ${tab === 'teams' ? 'active' : ''}`} onClick={() => setTab('teams')}>{tr('teams')} <span className="mono">{teams.length}</span></button>

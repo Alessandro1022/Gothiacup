@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useLang } from '@/components/LanguageProvider';
-import { tenant } from '@/lib/tenant';
+import { useTenant } from '@/components/TenantProvider';
 
 // Databasen räknar, klienten ritar. En rad per område i stället för alla lag.
 type AreaStat = {
@@ -13,6 +13,8 @@ type AreaStat = {
 };
 
 export default function AreasClient() {
+  // Turneringens egna namn och etiketter, inte den statiska standarden
+  const tenant = useTenant();
   const { tr } = useLang();
   const supabase = createClient();
   const [rows, setRows] = useState<AreaStat[]>([]);

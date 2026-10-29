@@ -1,15 +1,15 @@
 'use client';
-// Bemanning: brister, frånvaro, tillgänglighet och introduktion.
+// Bemanning: brister, jour, frånvaro, tillgänglighet och introduktion.
 //
 // Frånvaro visas bara för personen själv och för ledningen. Att en kollega
 // kan se vem som är sjukskriven är inte en driftfråga, och tabellen har
 // därför heller ingen plats för orsak — bara att någon inte kommer.
-import { useCallback, useEffect, useState } from 'react';
-import {
-  TriangleAlert, CalendarOff, CalendarCheck, GraduationCap, Plus, Check
-} from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { TriangleAlert, CalendarOff, CalendarCheck, Trash2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { tierOf, type Role, ROLE_LABELS } from '@/lib/types';
+import OnCallTab from '@/components/staffing/OnCallTab';
+import IntroTab, { appliesTo } from '@/components/staffing/IntroTab';
 
 type Gap = {
   shift_id: string; starts_at: string; ends_at: string; role_note: string | null;
@@ -20,10 +20,9 @@ type Absence = {
   replacement_user_id: string | null;
 };
 type Person = { id: string; full_name: string; role: Role };
-type Avail = { id: string; day: string; kind: string; note: string };
-type Onboard = {
-  id: string; title: string; body: string; required: boolean; sort_order: number;
-};
+type Avail = { id: string; user_id: string; day: string; kind: string; note: string };
+
+export type StaffingTab = 'brister' | 'jour' | 'franvaro' | 'tillganglighet' | 'intro';
 
 const GAP_LABEL: Record<string, string> = {
   obemannat: 'Obemannat',
@@ -33,23 +32,30 @@ const GAP_LABEL: Record<string, string> = {
 const ABSENCE_LABEL: Record<string, string> = {
   sjuk: 'Sjuk', vab: 'Vård av barn', ledig: 'Ledig', annat: 'Annat'
 };
+const AVAIL_LABEL: Record<string, string> = {
+  tillganglig: 'kan jobba', onskar: 'önskar pass', kan_inte: 'kan inte'
+};
 
-export default function StaffingClient({ userId, role }: { userId: string; role: Role }) {
-  const supabase = createClient();
+const todayIso = () => new Date().toISOString().slice(0, 10);
+
+export default function StaffingClient({ userId, role, initialTab }: {
+  userId: string; role: Role; initialTab?: StaffingTab;
+}) {
+  const supabase = useMemo(() => createClient(), []);
   const tier = tierOf(role);
   const isManager = tier >= 4;
 
-  const [tab, setTab] = useState<'brister' | 'franvaro' | 'tillganglighet' | 'intro'>(
-    isManager ? 'brister' : 'tillganglighet'
+  const [tab, setTab] = useState<StaffingTab>(
+    initialTab && (initialTab !== 'brister' || isManager) ? initialTab : (isManager ? 'brister' : 'jour')
   );
   const [gaps, setGaps] = useState<Gap[]>([]);
   const [absences, setAbsences] = useState<Absence[]>([]);
   const [people, setPeople] = useState<Person[]>([]);
   const [avail, setAvail] = useState<Avail[]>([]);
-  const [items, setItems] = useState<Onboard[]>([]);
-  const [done, setDone] = useState<Set<string>>(new Set());
+  const [introLeft, setIntroLeft] = useState(0);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
+  const [availView, setAvailView] = useState<'egen' | 'alla'>('egen');
 
   // Ny frånvaro
   const [aUser, setAUser] = useState('');
@@ -68,24 +74,27 @@ export default function StaffingClient({ userId, role }: { userId: string; role:
                 : Promise.resolve({ data: [] }),
       supabase.from('absences').select('*').order('from_date', { ascending: false }),
       supabase.from('profiles').select('id,full_name,role').order('full_name'),
-      supabase.from('availability').select('id,day,kind,note').eq('user_id', userId).order('day'),
-      supabase.from('onboarding_items').select('*').order('sort_order'),
+      // Ledningen ser allas tillgänglighet (RLS), övriga bara sin egen
+      supabase.from('availability').select('id,user_id,day,kind,note').gte('day', todayIso()).order('day'),
+      supabase.from('onboarding_items').select('id,roles,required'),
       supabase.from('onboarding_done').select('item_id').eq('user_id', userId)
     ]);
     setGaps((g.data ?? []) as Gap[]);
     setAbsences((a.data ?? []) as Absence[]);
     setPeople((p.data ?? []) as Person[]);
     setAvail((v.data ?? []) as Avail[]);
-    setItems((i.data ?? []) as Onboard[]);
-    setDone(new Set(((d.data ?? []) as { item_id: string }[]).map((x) => x.item_id)));
+    const doneSet = new Set(((d.data ?? []) as { item_id: string }[]).map((x) => x.item_id));
+    const items = (i.data ?? []) as { id: string; roles: string[] | null; required: boolean }[];
+    setIntroLeft(items.filter((it) => it.required && appliesTo(it, role) && !doneSet.has(it.id)).length);
     setLoading(false);
-  }, [supabase, userId, isManager]);
+  }, [supabase, userId, isManager, role]);
 
   useEffect(() => { load(); }, [load]);
 
   const addAbsence = async () => {
     const who = isManager ? (aUser || userId) : userId;
     if (!aFrom || !aTo) { setErr('Välj datum.'); return; }
+    if (aTo < aFrom) { setErr('Slutdatum kan inte vara före startdatum.'); return; }
     setErr('');
     const { error } = await supabase.from('absences').insert({
       user_id: who, kind: aKind, from_date: aFrom, to_date: aTo, reported_by: userId
@@ -105,12 +114,15 @@ export default function StaffingClient({ userId, role }: { userId: string; role:
     const { error } = await supabase.from('availability').insert({
       user_id: userId, day: vDay, kind: vKind, note: vNote.trim()
     });
-    if (error) { setErr(error.message); return; }
+    if (error) {
+      setErr(/duplicate|unique/i.test(error.message) ? 'Du har redan anmält det för den dagen.' : error.message);
+      return;
+    }
     setVDay(''); setVNote(''); load();
   };
 
-  const markDone = async (it: Onboard) => {
-    await supabase.from('onboarding_done').insert({ item_id: it.id, user_id: userId });
+  const removeAvail = async (v: Avail) => {
+    await supabase.from('availability').delete().eq('id', v.id);
     load();
   };
 
@@ -118,8 +130,17 @@ export default function StaffingClient({ userId, role }: { userId: string; role:
     id ? (people.find((p) => p.id === id)?.full_name || '—') : '—';
   const fmt = (d: string) =>
     new Date(d).toLocaleString('sv-SE', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  const dayLabel = (d: string) =>
+    new Date(`${d}T12:00:00`).toLocaleDateString('sv-SE', { weekday: 'long', day: 'numeric', month: 'long' });
 
-  const requiredLeft = items.filter((i) => i.required && !done.has(i.id)).length;
+  const mine = avail.filter((v) => v.user_id === userId);
+
+  // Ledningens översikt: per dag, vilka kan och vilka vill
+  const byDay = useMemo(() => {
+    const m = new Map<string, Avail[]>();
+    for (const v of avail) m.set(v.day, [...(m.get(v.day) ?? []), v]);
+    return [...m.entries()].sort(([a], [b]) => a.localeCompare(b));
+  }, [avail]);
 
   if (loading) return <div className="page-sub">Laddar…</div>;
 
@@ -128,7 +149,7 @@ export default function StaffingClient({ userId, role }: { userId: string; role:
       <h1 className="page-title">Bemanning</h1>
       <div className="page-sub">
         {isManager ? `${gaps.length} brister · ` : ''}
-        {requiredLeft > 0 ? `${requiredLeft} punkter kvar i introduktionen` : 'introduktionen klar'}
+        {introLeft > 0 ? `${introLeft} punkter kvar i introduktionen` : 'introduktionen klar'}
       </div>
 
       {err && <div className="form-error" style={{ marginBottom: 10 }}>{err}</div>}
@@ -139,14 +160,13 @@ export default function StaffingClient({ userId, role }: { userId: string; role:
             Brister <span className="mono">{gaps.length}</span>
           </button>
         )}
-        <button className={`tab ${tab === 'franvaro' ? 'active' : ''}`} onClick={() => setTab('franvaro')}>
-          Frånvaro
-        </button>
+        <button className={`tab ${tab === 'jour' ? 'active' : ''}`} onClick={() => setTab('jour')}>Jour</button>
+        <button className={`tab ${tab === 'franvaro' ? 'active' : ''}`} onClick={() => setTab('franvaro')}>Frånvaro</button>
         <button className={`tab ${tab === 'tillganglighet' ? 'active' : ''}`} onClick={() => setTab('tillganglighet')}>
           Tillgänglighet
         </button>
         <button className={`tab ${tab === 'intro' ? 'active' : ''}`} onClick={() => setTab('intro')}>
-          Introduktion {requiredLeft > 0 && <span className="mono">{requiredLeft}</span>}
+          Introduktion {introLeft > 0 && <span className="mono">{introLeft}</span>}
         </button>
       </div>
 
@@ -174,6 +194,8 @@ export default function StaffingClient({ userId, role }: { userId: string; role:
           )}
         </div>
       )}
+
+      {tab === 'jour' && <OnCallTab isManager={isManager} />}
 
       {tab === 'franvaro' && (
         <>
@@ -223,7 +245,9 @@ export default function StaffingClient({ userId, role }: { userId: string; role:
                       {ABSENCE_LABEL[a.kind] ?? a.kind} · {a.from_date} till {a.to_date}
                     </div>
                   </div>
-                  {!a.replacement_user_id && <span className="badge b-critical">ersättare saknas</span>}
+                  {!a.replacement_user_id
+                    ? <span className="badge b-critical">ersättare saknas</span>
+                    : <span className="badge b-resolved">ersätts av {name(a.replacement_user_id)}</span>}
                 </div>
                 {isManager && (
                   <div className="li-actions">
@@ -231,7 +255,7 @@ export default function StaffingClient({ userId, role }: { userId: string; role:
                       value={a.replacement_user_id ?? ''}
                       onChange={(e) => setReplacement(a, e.target.value)}>
                       <option value="">Ersättare: ingen</option>
-                      {people.map((p) => (
+                      {people.filter((p) => p.id !== a.user_id).map((p) => (
                         <option key={p.id} value={p.id}>{p.full_name || '—'}</option>
                       ))}
                     </select>
@@ -246,82 +270,89 @@ export default function StaffingClient({ userId, role }: { userId: string; role:
 
       {tab === 'tillganglighet' && (
         <>
-          <div className="inline-form cols">
-            <div>
-              <label className="label">Dag</label>
-              <input className="input" type="date" value={vDay} onChange={(e) => setVDay(e.target.value)} />
+          {isManager && (
+            <div className="chips">
+              <button className={`chip ${availView === 'egen' ? 'active' : ''}`} onClick={() => setAvailView('egen')}>Min</button>
+              <button className={`chip ${availView === 'alla' ? 'active' : ''}`} onClick={() => setAvailView('alla')}>
+                Alla <span className="mono" style={{ marginLeft: 6, opacity: 0.7 }}>{avail.length}</span>
+              </button>
             </div>
-            <div>
-              <label className="label">Jag</label>
-              <select className="select" value={vKind} onChange={(e) => setVKind(e.target.value)}>
-                <option value="tillganglig">kan jobba</option>
-                <option value="onskar">önskar pass</option>
-                <option value="kan_inte">kan inte</option>
-              </select>
-            </div>
-            <div style={{ flex: 2 }}>
-              <label className="label">Kommentar</label>
-              <input className="input" value={vNote} onChange={(e) => setVNote(e.target.value)} />
-            </div>
-            <button className="btn btn-primary" onClick={addAvail} disabled={!vDay}>
-              <CalendarCheck size={15} /> Spara
-            </button>
-          </div>
+          )}
 
-          <div className="list">
-            {avail.map((v) => (
-              <div key={v.id} className="list-item" style={{ padding: '9px 0' }}>
-                <div className="li-head">
-                  <div>
-                    <div style={{ fontSize: 14 }}>{v.day}</div>
-                    {v.note && <div className="li-meta">{v.note}</div>}
-                  </div>
-                  <span className={`badge ${v.kind === 'kan_inte' ? 'b-critical' : 'b-low'}`}>
-                    {v.kind === 'tillganglig' ? 'kan jobba' : v.kind === 'onskar' ? 'önskar pass' : 'kan inte'}
-                  </span>
+          {availView === 'egen' && (
+            <>
+              <div className="inline-form cols">
+                <div>
+                  <label className="label">Dag</label>
+                  <input className="input" type="date" value={vDay} min={todayIso()} onChange={(e) => setVDay(e.target.value)} />
                 </div>
+                <div>
+                  <label className="label">Jag</label>
+                  <select className="select" value={vKind} onChange={(e) => setVKind(e.target.value)}>
+                    <option value="tillganglig">kan jobba</option>
+                    <option value="onskar">önskar pass</option>
+                    <option value="kan_inte">kan inte</option>
+                  </select>
+                </div>
+                <div style={{ flex: 2 }}>
+                  <label className="label">Kommentar</label>
+                  <input className="input" value={vNote} onChange={(e) => setVNote(e.target.value)} placeholder="t.ex. bara kväll" />
+                </div>
+                <button className="btn btn-primary" onClick={addAvail} disabled={!vDay}>
+                  <CalendarCheck size={15} /> Spara
+                </button>
               </div>
-            ))}
-            {avail.length === 0 && (
-              <div className="page-sub">Du har inte anmält någon tillgänglighet än.</div>
-            )}
-          </div>
+
+              <div className="list">
+                {mine.map((v) => (
+                  <div key={v.id} className="list-item oncall-row">
+                    <div style={{ minWidth: 0 }}>
+                      <div className="li-title" style={{ textTransform: 'capitalize' }}>{dayLabel(v.day)}</div>
+                      {v.note && <div className="li-meta" style={{ marginTop: 2 }}>{v.note}</div>}
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <span className={`badge ${v.kind === 'kan_inte' ? 'b-critical' : v.kind === 'onskar' ? 'b-resolved' : 'b-low'}`}>
+                        {AVAIL_LABEL[v.kind] ?? v.kind}
+                      </span>
+                      <button className="move-btn" onClick={() => removeAvail(v)} aria-label="Ta bort"><Trash2 size={14} /></button>
+                    </div>
+                  </div>
+                ))}
+                {mine.length === 0 && (
+                  <div className="page-sub">Du har inte anmält någon tillgänglighet än.</div>
+                )}
+              </div>
+            </>
+          )}
+
+          {availView === 'alla' && isManager && (
+            <>
+              {byDay.map(([d, list]) => {
+                const can = list.filter((v) => v.kind === 'tillganglig');
+                const want = list.filter((v) => v.kind === 'onskar');
+                const cant = list.filter((v) => v.kind === 'kan_inte');
+                return (
+                  <div key={d} className="card" style={{ marginBottom: 10 }}>
+                    <div className="li-title" style={{ textTransform: 'capitalize' }}>{dayLabel(d)}</div>
+                    {want.length > 0 && (
+                      <div className="stat-row"><span>Önskar pass</span><b>{want.map((v) => name(v.user_id)).join(', ')}</b></div>
+                    )}
+                    {can.length > 0 && (
+                      <div className="stat-row"><span>Kan jobba</span><b>{can.map((v) => name(v.user_id)).join(', ')}</b></div>
+                    )}
+                    {cant.length > 0 && (
+                      <div className="stat-row"><span>Kan inte</span><b style={{ color: 'var(--danger)' }}>{cant.map((v) => name(v.user_id)).join(', ')}</b></div>
+                    )}
+                  </div>
+                );
+              })}
+              {byDay.length === 0 && <div className="page-sub">Ingen har anmält tillgänglighet framåt.</div>}
+            </>
+          )}
         </>
       )}
 
-      {tab === 'intro' && (
-        <div className="list">
-          {items.map((it) => (
-            <div key={it.id} className="list-item">
-              <div className="li-head">
-                <div>
-                  <div className="li-title" style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                    <GraduationCap size={15} /> {it.title}
-                    {!it.required && <span className="li-meta" style={{ marginTop: 0 }}>frivillig</span>}
-                  </div>
-                  {it.body && (
-                    <div className="li-meta" style={{ whiteSpace: 'pre-wrap' }}>{it.body}</div>
-                  )}
-                </div>
-                {done.has(it.id) && <span className="badge b-resolved">klar</span>}
-              </div>
-              {!done.has(it.id) && (
-                <div className="li-actions">
-                  <button className="btn btn-sm btn-primary" onClick={() => markDone(it)}>
-                    <Check size={13} /> Läst och förstått
-                  </button>
-                </div>
-              )}
-            </div>
-          ))}
-          {items.length === 0 && (
-            <div className="page-sub">
-              Ingen introduktion upplagd än.
-              {isManager && ' Lägg upp punkter så får ny personal dem vid första inloggningen.'}
-            </div>
-          )}
-        </div>
-      )}
+      {tab === 'intro' && <IntroTab userId={userId} role={role} isManager={isManager} onChange={load} />}
     </>
   );
 }

@@ -2,13 +2,15 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useLang } from '@/components/LanguageProvider';
-import { tenant } from '@/lib/tenant';
+import { useTenant } from '@/components/TenantProvider';
 
 type Inc = { severity: string; status: string; created_at: string };
 type SchoolRow = { id: string; name: string; capacity: number };
 type TeamRow = { school_id: string; group_size: number; status: string };
 
 export default function ReportsClient() {
+  // Turneringens egna namn och etiketter, inte den statiska standarden
+  const tenant = useTenant();
   const { tr } = useLang();
   const supabase = createClient();
   const [inc, setInc] = useState<Inc[]>([]);
@@ -69,7 +71,7 @@ export default function ReportsClient() {
   return (
     <>
       <h1 className="page-title">{tr('reports')}</h1>
-      <div className="page-sub">{tenant.event.name} · BI</div>
+      <div className="page-sub">{tenant.name} · BI</div>
 
       <div className="cards">
         <div className="card"><div className="kpi-num">{inc.length}</div><div className="kpi-lbl">{tr('perDay7')}</div></div>

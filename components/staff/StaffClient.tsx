@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useLang } from '@/components/LanguageProvider';
-import { tenant } from '@/lib/tenant';
+import { useTenant } from '@/components/TenantProvider';
 import { tierOf, type Role, ROLE_LABELS, ROLE_GROUPS } from '@/lib/types';
 
 // 16 roller i en platt lista blir svart att overblicka, sa de grupperas
@@ -22,6 +22,8 @@ type Scope = { id: string; user_id: string; area_id: string | null; location_typ
 type Named = { id: string; name: string };
 
 export default function StaffClient({ viewerRole }: { viewerRole: Role }) {
+  // Turneringens egna namn och etiketter, inte den statiska standarden
+  const tenant = useTenant();
   const { tr } = useLang();
   const supabase = createClient();
   const canEdit = tierOf(viewerRole) >= 5; // roll + scope skrivs endast av admin+ (skyddat av RLS/trigger)

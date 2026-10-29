@@ -4,7 +4,7 @@ import { Sparkles, RefreshCw, Car, Send } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useLang } from '@/components/LanguageProvider';
 import { tierOf, type Role } from '@/lib/types';
-import { tenant } from '@/lib/tenant';
+import { useTenant } from '@/components/TenantProvider';
 import Markdown from '@/components/ai/Markdown';
 
 type Report = { id: string; kind: string; slot: string; report_date: string; body: string; created_at: string };
@@ -14,6 +14,8 @@ type CarRow = { id: string; label: string };
 const KINDS = ['overview', 'schools', 'security', 'matches'] as const;
 
 export default function AiClient({ role }: { role: Role }) {
+  // Turneringens egna namn och etiketter, inte den statiska standarden
+  const tenant = useTenant();
   const { tr } = useLang();
   const supabase = createClient();
   const tier = tierOf(role);

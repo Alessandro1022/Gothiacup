@@ -4,8 +4,8 @@ import Link from 'next/link';
 import { ArrowLeft, MapPin } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useLang } from '@/components/LanguageProvider';
-import { tenant } from '@/lib/tenant';
 import { useTenant } from '@/components/TenantProvider';
+import EmergencyCard from '@/components/EmergencyCard';
 
 type Arena = { id: string; name: string; address: string | null; surface_count: number };
 type Match = { id: string; surface_label: string; home_team: string; away_team: string; category: string | null; starts_at: string; status: string; risk_level: string; risk_note: string | null; home_score: number | null; away_score: number | null; group_name: string; walkover_team: string; report: string; referee_id: string | null };
@@ -88,7 +88,7 @@ export default function ArenaDetailClient({ arena, userId }: { arena: Arena; use
   const addMatch = async () => {
     if (!mHome || !mAway || !mTime) return;
     await supabase.from('arena_matches').insert({
-      arena_id: arena.id, surface_label: mSurf || `${tenant.labels.playingArea} 1`,
+      arena_id: arena.id, surface_label: mSurf || `${tn.labels.playingArea} 1`,
       home_team: mHome, away_team: mAway, category: mCat || null,
       starts_at: new Date(mTime).toISOString()
     });
@@ -192,11 +192,13 @@ export default function ArenaDetailClient({ arena, userId }: { arena: Arena; use
       </Link>
       <h1 className="page-title">{arena.name}</h1>
       <div className="page-sub">
-        {arena.address ?? ''} · {arena.surface_count} {tenant.labels.playingAreas.toLowerCase()}
+        {arena.address ?? ''} · {arena.surface_count} {tn.labels.playingAreas.toLowerCase()}
         {tn.has('map') && (
           <> · <Link href={`/map?p=arena:${arena.id}`} className="map-link"><MapPin size={13} /> Visa på kartan</Link></>
         )}
       </div>
+
+      <EmergencyCard table="arenas" id={arena.id} />
 
       <div className="tabs">
         <button className={`tab ${tab === 'matches' ? 'active' : ''}`} onClick={() => setTab('matches')}>{tr('matchesLbl')} <span className="mono">{matches.filter((m) => m.status !== 'finished' && m.status !== 'cancelled').length}</span></button>
@@ -208,11 +210,11 @@ export default function ArenaDetailClient({ arena, userId }: { arena: Arena; use
       {tab === 'matches' && (
         <>
           <div className="inline-form cols">
-            <div><label className="label">{tenant.labels.playingArea}</label><input className="input" value={mSurf} onChange={(e) => setMSurf(e.target.value)} /></div>
+            <div><label className="label">{tn.labels.playingArea}</label><input className="input" value={mSurf} onChange={(e) => setMSurf(e.target.value)} /></div>
             <div><label className="label">{tr('homeTeam')}</label><input className="input" value={mHome} onChange={(e) => setMHome(e.target.value)} /></div>
             <div><label className="label">{tr('awayTeam')}</label><input className="input" value={mAway} onChange={(e) => setMAway(e.target.value)} /></div>
             <div><label className="label">{tr('category')}</label><input className="input" value={mCat} onChange={(e) => setMCat(e.target.value)} /></div>
-            <div><label className="label">{tenant.labels.matchStart}</label><input className="input" type="datetime-local" value={mTime} onChange={(e) => setMTime(e.target.value)} /></div>
+            <div><label className="label">{tn.labels.matchStart}</label><input className="input" type="datetime-local" value={mTime} onChange={(e) => setMTime(e.target.value)} /></div>
             <button className="btn btn-primary" onClick={addMatch}>{tr('addMatch')}</button>
           </div>
           <div className="list">
@@ -222,7 +224,7 @@ export default function ArenaDetailClient({ arena, userId }: { arena: Arena; use
                   <div>
                     <div className="li-title">{m.home_team} — {m.away_team}</div>
                     <div className="li-meta mono">
-                      {m.surface_label} · {tenant.labels.matchStart} {fmt(m.starts_at)}
+                      {m.surface_label} · {tn.labels.matchStart} {fmt(m.starts_at)}
                       {m.category ? ` · ${m.category}` : ''}
                       {m.group_name ? ` · ${m.group_name}` : ''}
                     </div>
@@ -289,11 +291,11 @@ export default function ArenaDetailClient({ arena, userId }: { arena: Arena; use
 
                 {editM?.id === m.id && (
                   <div className="inline-form cols" style={{ marginTop: 10, marginBottom: 0 }}>
-                    <div><label className="label">{tenant.labels.playingArea}</label><input className="input" value={emSurf} onChange={(e) => setEmSurf(e.target.value)} /></div>
+                    <div><label className="label">{tn.labels.playingArea}</label><input className="input" value={emSurf} onChange={(e) => setEmSurf(e.target.value)} /></div>
                     <div><label className="label">{tr('homeTeam')}</label><input className="input" value={emHome} onChange={(e) => setEmHome(e.target.value)} /></div>
                     <div><label className="label">{tr('awayTeam')}</label><input className="input" value={emAway} onChange={(e) => setEmAway(e.target.value)} /></div>
                     <div><label className="label">{tr('category')}</label><input className="input" value={emCat} onChange={(e) => setEmCat(e.target.value)} /></div>
-                    <div><label className="label">{tenant.labels.matchStart}</label><input className="input" type="datetime-local" value={emTime} onChange={(e) => setEmTime(e.target.value)} /></div>
+                    <div><label className="label">{tn.labels.matchStart}</label><input className="input" type="datetime-local" value={emTime} onChange={(e) => setEmTime(e.target.value)} /></div>
                     <div><label className="label">{tr('riskLbl')}</label>
                       <select className="select" value={emRisk} onChange={(e) => setEmRisk(e.target.value)}>
                         <option value="green">{tr('riskGreen')}</option>

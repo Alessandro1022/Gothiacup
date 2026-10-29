@@ -62,11 +62,11 @@ export default function DocsClient({ role }: { role: Role }) {
           <div className="list">
             {docs.filter((d) => d.category === cat).map((d) => (
               <div key={d.id} className="list-item">
-                <div className="li-head">
-                  <div className="li-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <FileText size={15} style={{ color: 'var(--muted)' }} /> {d.name}
+                <div className="li-head" style={{ flexWrap: 'wrap' }}>
+                  <div className="li-title" style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, overflowWrap: 'anywhere' }}>
+                    <FileText size={15} style={{ color: 'var(--muted)', flexShrink: 0 }} /> {d.name}
                   </div>
-                  <div style={{ display: 'flex', gap: 6 }}>
+                  <div style={{ display: 'flex', gap: 6, marginLeft: 'auto' }}>
                     <a className="btn btn-sm" href={d.url} target="_blank" rel="noreferrer">
                       <ExternalLink size={13} style={{ verticalAlign: -2, marginRight: 4 }} />{tr('openDoc')}
                     </a>

@@ -222,7 +222,9 @@ export default function Shell({ role, name, children }: Props) {
 
       <main className="main" style={crisis.active ? { paddingTop: 56 } : undefined}>{children}</main>
 
-      {jour && <OnCallSheet onClose={() => setJour(false)} />}
+      {jour && (
+        <OnCallSheet onClose={() => setJour(false)} canEdit={tier >= 4} showSchedule={visible('/staffing')} />
+      )}
 
       <nav className="bottombar" style={{ gridTemplateColumns: `repeat(${bottomItems.length + 1}, 1fr)` }}>
         {bottomItems.map(({ href, label, Icon }) => (

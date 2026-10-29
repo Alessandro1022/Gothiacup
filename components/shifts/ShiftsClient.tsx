@@ -5,7 +5,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { createClient } from '@/lib/supabase/client';
 import { useLang } from '@/components/LanguageProvider';
 import { tierOf, type Role } from '@/lib/types';
-import { tenant } from '@/lib/tenant';
+import { useTenant } from '@/components/TenantProvider';
 
 type Shift = {
   id: string; user_id: string | null; location_type: string | null; location_id: string | null;
@@ -17,6 +17,8 @@ type Opt = { id: string; name: string };
 type Person = { id: string; full_name: string };
 
 export default function ShiftsClient({ userId, role }: { userId: string; role: Role }) {
+  // Turneringens egna namn och etiketter, inte den statiska standarden
+  const tenant = useTenant();
   const { tr } = useLang();
   const supabase = createClient();
   const tier = tierOf(role);
@@ -127,7 +129,7 @@ export default function ShiftsClient({ userId, role }: { userId: string; role: R
       <div className="row-between">
         <div>
           <h1 className="page-title">{tr('shifts')}</h1>
-          <div className="page-sub" style={{ marginBottom: 0 }}>{tenant.event.name}</div>
+          <div className="page-sub" style={{ marginBottom: 0 }}>{tenant.name}</div>
         </div>
         {tier >= 3 && (
           <button className="btn btn-primary" onClick={() => setModal(true)}>

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Plus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useLang } from '@/components/LanguageProvider';
-import { tenant } from '@/lib/tenant';
+import { useTenant } from '@/components/TenantProvider';
 
 type Inc = {
   id: string; title: string; description: string | null;
@@ -18,6 +18,8 @@ type Loc = { id: string; name: string };
 const SEVERITIES = ['low', 'medium', 'high', 'critical'] as const;
 
 export default function IncidentsClient({ userId }: { userId: string }) {
+  // Turneringens egna namn och etiketter, inte den statiska standarden
+  const tenant = useTenant();
   const { tr } = useLang();
   const supabase = createClient();
   const [items, setItems] = useState<Inc[]>([]);

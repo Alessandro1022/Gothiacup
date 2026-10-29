@@ -4,7 +4,8 @@
 // Ligger medvetet INTE under en meny: när man behöver den här panelen har
 // man inte tid att leta. Numren är tel:-länkar så att ett tryck ringer.
 import { useCallback, useEffect, useState } from 'react';
-import { Phone, Siren, X, ShieldAlert } from 'lucide-react';
+import Link from 'next/link';
+import { Phone, Siren, X, ShieldAlert, CalendarClock } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
 type OnCall = {
@@ -18,7 +19,9 @@ const FUNC_LABEL: Record<string, string> = {
   transport: 'Transport', maltider: 'Måltider', sjukvard: 'Sjukvård'
 };
 
-export default function OnCallSheet({ onClose }: { onClose: () => void }) {
+export default function OnCallSheet({ onClose, canEdit = false, showSchedule = true }: {
+  onClose: () => void; canEdit?: boolean; showSchedule?: boolean;
+}) {
   const supabase = createClient();
   const [onCall, setOnCall] = useState<OnCall[]>([]);
   const [emergency, setEmergency] = useState<Emergency[]>([]);
@@ -53,7 +56,8 @@ export default function OnCallSheet({ onClose }: { onClose: () => void }) {
 
         {!loading && onCall.length === 0 && (
           <div className="page-sub">
-            Ingen jour är schemalagd just nu. Lägg upp jourpass under Personal.
+            Ingen jour är schemalagd just nu.
+            {canEdit && showSchedule && ' Lägg upp jourpass under Bemanning → Jour.'}
           </div>
         )}
 
@@ -98,6 +102,13 @@ export default function OnCallSheet({ onClose }: { onClose: () => void }) {
               ))}
             </div>
           </>
+        )}
+
+        {showSchedule && (
+          <Link href="/staffing?tab=jour" className="btn btn-sm" onClick={onClose}
+            style={{ marginTop: 16, width: '100%' }}>
+            <CalendarClock size={15} /> {canEdit ? 'Jourschema och nödnummer' : 'Hela jourschemat'}
+          </Link>
         )}
       </div>
     </div>

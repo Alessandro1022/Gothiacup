@@ -3,14 +3,17 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useLang } from '@/components/LanguageProvider';
-import { tenant } from '@/lib/tenant';
+import { useTenant } from '@/components/TenantProvider';
 import { tierOf, type Role } from '@/lib/types';
+import DashboardNotices from '@/components/dashboard/DashboardNotices';
 
 type Inc = { id: string; title: string; severity: string; status: string; created_at: string };
 type Task = { id: string; title: string; status: string; priority: string };
 type Shift = { id: string; starts_at: string; ends_at: string; status: string; role_note: string | null };
 
 export default function DashboardClient({ role, userId }: { role: Role; userId: string }) {
+  // Turneringens egna namn och etiketter, inte den statiska standarden
+  const tenant = useTenant();
   const { tr } = useLang();
   const supabase = createClient();
   const tier = tierOf(role);
@@ -83,8 +86,10 @@ export default function DashboardClient({ role, userId }: { role: Role; userId: 
     <>
       <h1 className="page-title">{tr('dashboard')}</h1>
       <div className="page-sub">
-        <span className="pulse" />{tenant.event.name} · {tenant.event.city} · {tr('live').toLowerCase()}
+        <span className="pulse" />{tenant.name} · {tenant.city} · {tr('live').toLowerCase()}
       </div>
+
+      <DashboardNotices role={role} userId={userId} />
 
       {tier >= 3 ? (
         <>

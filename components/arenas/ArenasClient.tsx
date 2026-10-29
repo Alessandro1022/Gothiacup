@@ -3,13 +3,15 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useLang } from '@/components/LanguageProvider';
-import { tenant } from '@/lib/tenant';
+import { useTenant } from '@/components/TenantProvider';
 
 type Arena = { id: string; name: string; address: string | null; surface_count: number; area_id: string | null };
 type Area = { id: string; name: string };
 type Match = { arena_id: string; status: string };
 
 export default function ArenasClient() {
+  // Turneringens egna namn och etiketter, inte den statiska standarden
+  const tenant = useTenant();
   const { tr } = useLang();
   const supabase = createClient();
   const [arenas, setArenas] = useState<Arena[]>([]);

@@ -802,3 +802,27 @@ button.map-li:active { transform: scale(.985); }
   .ms-actions .btn-sm { min-height: 0; padding: 7px 13px; }
   .map-li { padding: 10px 14px; }
 }
+
+/* ================================================================
+   BEMANNING, JOUR OCH NOTISER
+   ================================================================ */
+.oncall-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px 10px;
+  padding: 12px 14px; flex-wrap: wrap;
+}
+/* Texten tar plats först; knapparna bryts ner på egen rad när de inte ryms */
+.oncall-row > :first-child { flex: 1 1 160px; min-width: 0; }
+.oncall-row > :last-child:not(:first-child) { margin-left: auto; }
+.oncall-row .li-title { font-size: 15px; }
+.role-pick { display: flex; flex-wrap: wrap; gap: 6px; }
+.role-pick .chip { min-height: 36px; padding: 7px 12px; font-size: 13px; }
+.notice-card {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 16px;
+  padding: 14px 16px; border-radius: 18px; background: #FFF6E0; color: #5A4708;
+  border: 1px solid #F3DFA6; box-shadow: var(--sh-1);
+}
+.notice-card b { font-weight: 800; }
+.notice-card .li-meta { color: #7A6420; }
+.notice-card:active { transform: scale(.98); }
+.emerg-card { margin-bottom: 14px; background: #FFF6E0; border-color: #F3DFA6; }
+.emerg-card .li-title { display: flex; align-items: center; gap: 6px; color: #8A6A12; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; }

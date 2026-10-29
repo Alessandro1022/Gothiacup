@@ -12,7 +12,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useLang } from '@/components/LanguageProvider';
 import { useTenant } from '@/components/TenantProvider';
 import OnCallSheet from '@/components/OnCallSheet';
-import type { FeatureKey } from '@/lib/features';
+import { FEATURE_KEYS, type FeatureKey } from '@/lib/features';
 import { tierOf, type Role, ROLE_LABELS } from '@/lib/types';
 import { LANGS, type Lang } from '@/lib/i18n';
 
@@ -69,6 +69,17 @@ export default function Shell({ role, name, children }: Props) {
   }, []);
 
   const brandName = tn.name;
+
+  // Bara riktiga moduler styrs av paketet. Översikt, Inställningar och
+  // Plattform är inga moduler och ska aldrig döljas av att de saknas i
+  // turneringens modullista. Bemanning hör till modulen Pass.
+  const MODULE_FOR: Record<string, FeatureKey> = { staffing: 'shifts' };
+  const visible = (href: string) => {
+    const key = href.slice(1);
+    if (key === 'platform') return tn.isOwner;
+    const mod = MODULE_FOR[key] ?? key;
+    return (FEATURE_KEYS as readonly string[]).includes(mod) ? tn.has(mod as FeatureKey) : true;
+  };
 
   const nav = [
     {
@@ -128,7 +139,7 @@ export default function Shell({ role, name, children }: Props) {
     { href: '/incidents', label: tr('incidents'), Icon: AlertTriangle },
     { href: '/shifts', label: tr('shifts'), Icon: CalendarClock },
     { href: '/chat', label: tr('chat'), Icon: MessageSquare }
-  ];
+  ].filter((i) => visible(i.href));
 
   return (
     <div className="shell">
@@ -180,9 +191,7 @@ export default function Shell({ role, name, children }: Props) {
 
         <nav className="nav">
           {nav.map((g) => {
-            const items = g.items.filter(
-              (i) => tier >= i.minTier && tn.has(i.href.slice(1) as FeatureKey)
-            );
+            const items = g.items.filter((i) => tier >= i.minTier && visible(i.href));
             if (!items.length) return null;
             return (
               <div key={g.label}>
@@ -215,7 +224,7 @@ export default function Shell({ role, name, children }: Props) {
 
       {jour && <OnCallSheet onClose={() => setJour(false)} />}
 
-      <nav className="bottombar">
+      <nav className="bottombar" style={{ gridTemplateColumns: `repeat(${bottomItems.length + 1}, 1fr)` }}>
         {bottomItems.map(({ href, label, Icon }) => (
           <Link key={href} href={href} className={pathname.startsWith(href) ? 'active' : ''}>
             <Icon size={19} /> {label}

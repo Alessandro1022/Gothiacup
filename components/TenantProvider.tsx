@@ -137,6 +137,20 @@ export default function TenantProvider({ children }: { children: React.ReactNode
 
     load();
 
+    // Inloggningen byter inte sida på riktigt, så providern ligger kvar från
+    // inloggningssidan med den utloggade bilden: ingen turnering, inte ägare.
+    // Utan lyssnaren syntes till exempel inte Plattform förrän man laddat om.
+    let authSub: { unsubscribe: () => void } | null = null;
+    try {
+      const { data } = supabase.auth.onAuthStateChange((event) => {
+        if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
+          // Inte direkt i lyssnaren: Supabase-anrop därifrån kan låsa sig
+          setTimeout(() => { if (!cancelled) load(); }, 0);
+        }
+      });
+      authSub = data.subscription;
+    } catch { /* ignorera */ }
+
     try {
       const ch = supabase
         .channel('tenant-rt')
@@ -144,10 +158,11 @@ export default function TenantProvider({ children }: { children: React.ReactNode
         .subscribe();
       return () => {
         cancelled = true;
+        authSub?.unsubscribe();
         try { supabase.removeChannel(ch); } catch { /* ignorera */ }
       };
     } catch {
-      return () => { cancelled = true; };
+      return () => { cancelled = true; authSub?.unsubscribe(); };
     }
   }, [tick]);
 

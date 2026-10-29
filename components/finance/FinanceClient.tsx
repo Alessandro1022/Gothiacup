@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus, TrendingDown, Receipt, Users } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useTenant } from '@/components/TenantProvider';
+import RatesTab from '@/components/finance/RatesTab';
 
 type Row = {
   category: string; planned: number; actual: number;
@@ -41,7 +42,7 @@ export default function FinanceClient() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
-  const [tab, setTab] = useState<'budget' | 'poster' | 'lag'>('budget');
+  const [tab, setTab] = useState<'budget' | 'poster' | 'lag' | 'timpris'>('budget');
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
 
@@ -151,6 +152,9 @@ export default function FinanceClient() {
         </button>
         <button className={`tab ${tab === 'lag' ? 'active' : ''}`} onClick={() => setTab('lag')}>
           Per lag <span className="mono">{teams.length}</span>
+        </button>
+        <button className={`tab ${tab === 'timpris' ? 'active' : ''}`} onClick={() => setTab('timpris')}>
+          Timpriser
         </button>
       </div>
 
@@ -289,6 +293,8 @@ export default function FinanceClient() {
           </div>
         </>
       )}
+
+      {tab === 'timpris' && <RatesTab canWrite={canWrite} onSaved={load} />}
 
       {tab === 'lag' && (
         <div className="grid-cards">

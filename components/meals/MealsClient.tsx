@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useTenant } from '@/components/TenantProvider';
+import EntitlementsTab from '@/components/meals/EntitlementsTab';
 
 type Hall = {
   id: string; name: string; seats: number | null; supplier: string;
@@ -42,7 +43,8 @@ export default function MealsClient() {
   const [halls, setHalls] = useState<Hall[]>([]);
   const [board, setBoard] = useState<Board[]>([]);
   const [forecast, setForecast] = useState<Forecast[]>([]);
-  const [tab, setTab] = useState<'avprickning' | 'dagen' | 'matsalar'>('avprickning');
+  const [counts, setCounts] = useState<{ hall_id: string; meal: string; checked_in: number }[]>([]);
+  const [tab, setTab] = useState<'avprickning' | 'dagen' | 'rattigheter' | 'matsalar'>('avprickning');
   const [date, setDate] = useState(today());
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
@@ -61,11 +63,14 @@ export default function MealsClient() {
   const [hPhone, setHPhone] = useState('');
 
   const load = useCallback(async () => {
-    const [h, b, f] = await Promise.all([
+    const [h, b, f, c] = await Promise.all([
       supabase.from('dining_halls').select('*').order('name'),
       supabase.from('meal_board').select('*').eq('service_date', date),
-      supabase.from('meal_forecast').select('*').eq('service_date', date)
+      supabase.from('meal_forecast').select('*').eq('service_date', date),
+      // Avprickade även där inget måltidspass är upplagt (del 22)
+      supabase.from('meal_checkin_counts').select('hall_id,meal,checked_in').eq('service_date', date)
     ]);
+    setCounts((c.data ?? []) as { hall_id: string; meal: string; checked_in: number }[]);
     setHalls((h.data ?? []) as Hall[]);
     setBoard((b.data ?? []) as Board[]);
     setForecast((f.data ?? []) as Forecast[]);
@@ -156,6 +161,9 @@ export default function MealsClient() {
         <button className={`tab ${tab === 'dagen' ? 'active' : ''}`} onClick={() => setTab('dagen')}>
           Dagen <span className="mono">{rows.length}</span>
         </button>
+        <button className={`tab ${tab === 'rattigheter' ? 'active' : ''}`} onClick={() => setTab('rattigheter')}>
+          Rättigheter
+        </button>
         <button className={`tab ${tab === 'matsalar' ? 'active' : ''}`} onClick={() => setTab('matsalar')}>
           Matsalar <span className="mono">{halls.length}</span>
         </button>
@@ -237,7 +245,8 @@ export default function MealsClient() {
                     <span>Behov</span><b>{r.expected}</b>
                   </div>
                   <div className="stat-row">
-                    <span>Avprickade</span><b>{r.b?.checked_in ?? 0}</b>
+                    <span>Avprickade</span>
+                    <b>{r.b?.checked_in ?? counts.find((x) => x.hall_id === r.hall_id && x.meal === r.meal)?.checked_in ?? 0}</b>
                   </div>
 
                   {canWrite && (
@@ -290,6 +299,8 @@ export default function MealsClient() {
           )}
         </>
       )}
+
+      {tab === 'rattigheter' && <EntitlementsTab canWrite={canWrite} onChange={load} />}
 
       {tab === 'matsalar' && (
         <>

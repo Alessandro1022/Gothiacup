@@ -6,7 +6,7 @@ import {
   Menu, LayoutDashboard, AlertTriangle, CheckSquare, LogOut,
   Map, School, Landmark, CalendarClock, Users, BarChart3,
   Newspaper, MessageSquare, FileText, Siren, Settings2, Sparkles, History,
-  Layers, Building2, Package, Truck, UtensilsCrossed, Wallet, ShieldAlert
+  Layers, Building2, Package, Truck, UtensilsCrossed, Wallet, ShieldAlert, UserCheck
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useLang } from '@/components/LanguageProvider';
@@ -84,7 +84,8 @@ export default function Shell({ role, name, children }: Props) {
       items: [
         { href: '/incidents', label: tr('incidents'), Icon: AlertTriangle, minTier: 1 },
         { href: '/tasks', label: tr('tasks'), Icon: CheckSquare, minTier: 1 },
-        { href: '/shifts', label: tr('shifts'), Icon: CalendarClock, minTier: 1 }
+        { href: '/shifts', label: tr('shifts'), Icon: CalendarClock, minTier: 1 },
+        { href: '/staffing', label: 'Bemanning', Icon: UserCheck, minTier: 1 }
       ]
     },
     {

@@ -8,6 +8,7 @@ type Task = {
   id: string; title: string; description: string | null;
   status: 'todo' | 'in_progress' | 'done';
   priority: 'low' | 'normal' | 'high';
+  due_at: string | null;
   assigned_to: string | null;
 };
 type Person = { id: string; full_name: string };
@@ -26,6 +27,7 @@ export default function TasksClient({ userId }: { userId: string }) {
   const [fTitle, setFTitle] = useState('');
   const [fDesc, setFDesc] = useState('');
   const [fPrio, setFPrio] = useState<Task['priority']>('normal');
+  const [fDue, setFDue] = useState('');
   const [fAssign, setFAssign] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -33,11 +35,12 @@ export default function TasksClient({ userId }: { userId: string }) {
     setEditId(t.id);
     setFTitle(t.title); setFDesc(t.description ?? '');
     setFPrio(t.priority); setFAssign(t.assigned_to ?? '');
+    setFDue(t.due_at ? t.due_at.slice(0, 16) : '');
     setShowModal(true);
   };
   const openNew = () => {
     setEditId(null);
-    setFTitle(''); setFDesc(''); setFPrio('normal'); setFAssign('');
+    setFTitle(''); setFDesc(''); setFPrio('normal'); setFAssign(''); setFDue('');
     setShowModal(true);
   };
   const removeTask = async (t: Task) => {
@@ -49,7 +52,7 @@ export default function TasksClient({ userId }: { userId: string }) {
   const load = useCallback(async () => {
     const { data } = await supabase
       .from('tasks')
-      .select('id,title,description,status,priority,assigned_to')
+      .select('id,title,description,status,priority,assigned_to,due_at')
       .order('created_at', { ascending: false });
     setTasks((data ?? []) as Task[]);
     setLoading(false);
@@ -82,11 +85,13 @@ export default function TasksClient({ userId }: { userId: string }) {
     if (editId) {
       await supabase.from('tasks').update({
         title: fTitle, description: fDesc || null, priority: fPrio,
+        due_at: fDue ? new Date(fDue).toISOString() : null,
         assigned_to: fAssign || null
       }).eq('id', editId);
     } else {
       await supabase.from('tasks').insert({
         title: fTitle, description: fDesc || null, priority: fPrio,
+        due_at: fDue ? new Date(fDue).toISOString() : null,
         assigned_to: fAssign || null, created_by: userId
       });
     }
@@ -129,6 +134,17 @@ export default function TasksClient({ userId }: { userId: string }) {
                     </span>
                     {' '}· {prName(t.assigned_to)}
                   </div>
+                  {t.due_at && (
+                    <div className="kc-meta" style={
+                      new Date(t.due_at) < new Date() && t.status !== 'done'
+                        ? { color: 'var(--danger)', fontWeight: 600 } : undefined
+                    }>
+                      {new Date(t.due_at) < new Date() && t.status !== 'done' ? 'Försenad: ' : 'Klar senast: '}
+                      {new Date(t.due_at).toLocaleString('sv-SE', {
+                        day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+                      })}
+                    </div>
+                  )}
                   <div className="kc-actions">
                     <button className="move-btn" disabled={col === 'todo'} onClick={() => move(t, -1)} aria-label="Flytta vänster">
                       <ChevronLeft size={15} />
@@ -169,6 +185,10 @@ export default function TasksClient({ userId }: { userId: string }) {
               <option value="normal">{tr('prNormal')}</option>
               <option value="high">{tr('prHigh')}</option>
             </select>
+
+            <label className="label">Klar senast</label>
+            <input className="input" type="datetime-local" value={fDue}
+              onChange={(e) => setFDue(e.target.value)} />
 
             <label className="label">{tr('assign')}</label>
             <select className="select" value={fAssign} onChange={(e) => setFAssign(e.target.value)}>

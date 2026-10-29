@@ -42,7 +42,7 @@ export const GOTHIA: TenantConfig = {
   },
   labels: {
     playingArea: 'Plan', playingAreas: 'Planer', matchStart: 'Avspark',
-    match: 'Match', school: 'Skola', schools: 'Skolor', area: 'Område', areas: 'Områden'
+    match: 'Match', school: 'Boende', schools: 'Boenden', area: 'Område', areas: 'Områden'
   }
 };
 
@@ -58,7 +58,7 @@ export const PARTILLE: TenantConfig = {
   },
   labels: {
     playingArea: 'Hall', playingAreas: 'Hallar', matchStart: 'Nedkast',
-    match: 'Match', school: 'Skola', schools: 'Skolor', area: 'Område', areas: 'Områden'
+    match: 'Match', school: 'Boende', schools: 'Boenden', area: 'Område', areas: 'Områden'
   }
 };
 

@@ -11,7 +11,7 @@ import { Copy, Plus, Trash2, LogIn, UserPlus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useTenant } from '@/components/TenantProvider';
 import {
-  FEATURE_KEYS, FEATURE_LABELS, labelsForSport, countModules, formatPrice,
+  FEATURE_KEYS, FEATURE_LABELS, labelsForSport, countModules,
   type FeatureKey, type TenantRow, type PlanRow
 } from '@/lib/features';
 
@@ -225,9 +225,7 @@ export default function PlatformClient() {
         <div>
           <h1 className="page-title">Plattform</h1>
           <div className="page-sub" style={{ marginBottom: 0 }}>
-            {rows.length} turneringar · {formatPrice(
-              rows.reduce((a, r) => a + (r.price_per_year ?? 0), 0)
-            )} totalt · du är i {tn.name}
+            {rows.length} turneringar · du är i {tn.name}
           </div>
         </div>
         <button className="btn btn-primary" onClick={startNew}>
@@ -288,7 +286,6 @@ export default function PlatformClient() {
                       <span className="li-meta" style={{ marginLeft: 7, marginTop: 0 }}>anpassat</span>
                     )}
                   </span>
-                  <span className="mono" style={{ fontSize: 13 }}>{formatPrice(t.price_per_year)}</span>
                 </div>
               )}
 
@@ -426,7 +423,7 @@ export default function PlatformClient() {
 
             {plans.length > 0 && (
               <>
-                <label className="label" style={{ marginTop: 18 }}>Paket</label>
+                <label className="label" style={{ marginTop: 18 }}>Modulpaket</label>
                 <div style={{ display: 'grid', gap: 8 }}>
                   {plans.map((pl) => {
                     const picked = draft.plan_id === pl.id;
@@ -437,10 +434,7 @@ export default function PlatformClient() {
                           border: picked ? '2px solid var(--primary)' : '1px solid var(--line)',
                           background: picked ? 'color-mix(in srgb, var(--primary) 7%, transparent)' : '#fff'
                         }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'baseline' }}>
-                          <span style={{ fontWeight: 700, fontSize: 14.5 }}>{pl.name}</span>
-                          <span className="mono" style={{ fontSize: 13 }}>{formatPrice(pl.price_per_year)}</span>
-                        </div>
+                        <span style={{ fontWeight: 700, fontSize: 14.5 }}>{pl.name}</span>
                         <div className="li-meta" style={{ marginTop: 3 }}>
                           {countModules(pl.features)} av {FEATURE_KEYS.length} moduler · {pl.description}
                         </div>
@@ -449,20 +443,6 @@ export default function PlatformClient() {
                   })}
                 </div>
 
-                <div className="inline-form cols" style={{ border: 'none', padding: 0, background: 'none', marginTop: 10 }}>
-                  <div>
-                    <label className="label">Pris (kr/år)</label>
-                    <input className="input" inputMode="numeric" value={draft.price_per_year}
-                      onChange={(e) => setDraft({ ...draft, price_per_year: e.target.value.replace(/[^0-9]/g, '') })}
-                      placeholder="Tomt = offert" />
-                  </div>
-                  <div>
-                    <label className="label">Notering om fakturering</label>
-                    <input className="input" value={draft.billing_note}
-                      onChange={(e) => setDraft({ ...draft, billing_note: e.target.value })}
-                      placeholder="t.ex. faktureras i januari" />
-                  </div>
-                </div>
               </>
             )}
 

@@ -6,7 +6,7 @@ import {
   Menu, LayoutDashboard, AlertTriangle, CheckSquare, LogOut,
   Map, School, Landmark, CalendarClock, Users, BarChart3,
   Newspaper, MessageSquare, FileText, Siren, Settings2, Sparkles, History,
-  Layers, Building2, Package
+  Layers, Building2, Package, Truck
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useLang } from '@/components/LanguageProvider';
@@ -92,7 +92,8 @@ export default function Shell({ role, name, children }: Props) {
         { href: '/schools', label: tn.labels.schools, Icon: School, minTier: 2 },
         { href: '/arenas', label: tn.labels.playingAreas, Icon: Landmark, minTier: 2 },
         { href: '/map', label: 'Karta', Icon: Map, minTier: 2 },
-        { href: '/stock', label: 'Lager', Icon: Package, minTier: 2 }
+        { href: '/stock', label: 'Lager', Icon: Package, minTier: 2 },
+        { href: '/transport', label: 'Transport', Icon: Truck, minTier: 2 }
       ]
     },
     {

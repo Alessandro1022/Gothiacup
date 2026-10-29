@@ -5,7 +5,7 @@ export const FEATURE_KEYS = [
   'news', 'chat', 'docs',
   'reports', 'ai', 'crisis', 'staff', 'history', 'structure',
   // Etapp 2
-  'stock'
+  'stock', 'transport'
 ] as const;
 
 export type FeatureKey = typeof FEATURE_KEYS[number];
@@ -17,7 +17,7 @@ export const FEATURE_LABELS: Record<FeatureKey, string> = {
   news: 'Nyheter', chat: 'Chatt', docs: 'Dokument',
   reports: 'Rapporter', ai: 'AI-assistent', crisis: 'Krisläge',
   staff: 'Personal', history: 'Historik', structure: 'Struktur',
-  stock: 'Lager'
+  stock: 'Lager', transport: 'Transport'
 };
 
 export type TenantColors = {

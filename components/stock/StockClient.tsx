@@ -137,6 +137,7 @@ export default function StockClient() {
   );
 
   const lowCount = totals.filter((t) => t.under_grans).length;
+  const negCount = new Set(balances.filter((b) => b.qty < 0).map((b) => b.item_id)).size;
   const itemName = (id: string) => totals.find((t) => t.item_id === id)?.name ?? '—';
   const fmt = (d: string) =>
     new Date(d).toLocaleString('sv-SE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -149,6 +150,7 @@ export default function StockClient() {
       <div className="page-sub">
         {totals.length} artiklar
         {lowCount > 0 && ` · ${lowCount} under gränsen`}
+        {negCount > 0 && ` · ${negCount} med negativt saldo`}
         {!canWrite && ' · du har läsbehörighet'}
       </div>
 
@@ -270,9 +272,20 @@ export default function StockClient() {
 
               {perPlace.map((b) => (
                 <div key={`${b.location_type}:${b.location_id}`} className="stat-row">
-                  <span>{b.location_name}</span><b>{b.qty}</b>
+                  <span>{b.location_name}</span>
+                  <b style={b.qty < 0 ? { color: 'var(--danger)' } : undefined}>{b.qty}</b>
                 </div>
               ))}
+
+              {/* Negativt saldo betyder att mer lamnat platsen an som
+                  registrerats in. Systemet hindrar det inte med flit —
+                  materielen har fysiskt flyttat anda, och vagrar systemet
+                  slutar folk anvanda det. Men det maste synas. */}
+              {perPlace.some((b) => b.qty < 0) && (
+                <div className="li-meta" style={{ color: 'var(--danger)', marginTop: 6 }}>
+                  Negativt saldo: mer har lämnat platsen än som registrerats in. Inventera.
+                </div>
+              )}
 
               <div className="li-actions" style={{ marginTop: 8 }}>
                 <button className="btn btn-sm" onClick={() => setOpen(open === t.item_id ? null : t.item_id)}>

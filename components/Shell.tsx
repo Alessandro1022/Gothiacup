@@ -6,11 +6,12 @@ import {
   Menu, LayoutDashboard, AlertTriangle, CheckSquare, LogOut,
   Map, School, Landmark, CalendarClock, Users, BarChart3,
   Newspaper, MessageSquare, FileText, Siren, Settings2, Sparkles, History,
-  Layers, Building2, Package, Truck, UtensilsCrossed, Wallet
+  Layers, Building2, Package, Truck, UtensilsCrossed, Wallet, ShieldAlert
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useLang } from '@/components/LanguageProvider';
 import { useTenant } from '@/components/TenantProvider';
+import OnCallSheet from '@/components/OnCallSheet';
 import type { FeatureKey } from '@/lib/features';
 import { tierOf, type Role, ROLE_LABELS } from '@/lib/types';
 import { LANGS, type Lang } from '@/lib/i18n';
@@ -22,6 +23,7 @@ export default function Shell({ role, name, children }: Props) {
   const tn = useTenant();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [jour, setJour] = useState(false);
   const [clock, setClock] = useState('--:--');
   const [openInc, setOpenInc] = useState<number | null>(null);
   const [staffPct, setStaffPct] = useState<number | null>(null);
@@ -140,7 +142,11 @@ export default function Shell({ role, name, children }: Props) {
           <Menu size={22} />
         </button>
         <div className="brand-name">{brandName}</div>
-        <div className="mono" style={{ marginLeft: 'auto', fontSize: 13 }}>
+        <button className="burger" onClick={() => setJour(true)} aria-label="Jour och nödnummer"
+          style={{ marginLeft: 'auto' }}>
+          <ShieldAlert size={20} />
+        </button>
+        <div className="mono" style={{ fontSize: 13 }}>
           <span className="pulse" />{clock}
         </div>
       </div>
@@ -205,6 +211,8 @@ export default function Shell({ role, name, children }: Props) {
       </aside>
 
       <main className="main" style={crisis.active ? { paddingTop: 56 } : undefined}>{children}</main>
+
+      {jour && <OnCallSheet onClose={() => setJour(false)} />}
 
       <nav className="bottombar">
         {bottomItems.map(({ href, label, Icon }) => (

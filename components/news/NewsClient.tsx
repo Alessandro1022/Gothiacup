@@ -1,11 +1,13 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
-import { Pin } from 'lucide-react';
+import { Pin, CheckCheck, BellRing } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useLang } from '@/components/LanguageProvider';
 import { tierOf, type Role } from '@/lib/types';
 
-type Post = { id: string; title: string; body: string | null; pinned: boolean; min_tier: number; created_by: string; created_at: string };
+type Post = { id: string; title: string; body: string | null; pinned: boolean; min_tier: number; created_by: string; created_at: string; requires_ack: boolean };
+// Vilka inlagg jag kvitterat, och hur manga som kvitterat totalt
+type AckStatus = { post_id: string; acked: number; should_ack: number };
 
 export default function NewsClient({ userId, role }: { userId: string; role: Role }) {
   const { tr } = useLang();
@@ -15,10 +17,13 @@ export default function NewsClient({ userId, role }: { userId: string; role: Rol
   const [names, setNames] = useState<Record<string, string>>({});
   const [fTitle, setFTitle] = useState(''); const [fBody, setFBody] = useState(''); const [fTier, setFTier] = useState('1');
   const [loading, setLoading] = useState(true);
+  const [myAcks, setMyAcks] = useState<Set<string>>(new Set());
+  const [ackStatus, setAckStatus] = useState<Record<string, AckStatus>>({});
+  const [fAck, setFAck] = useState(false);
 
   const load = useCallback(async () => {
     const { data } = await supabase.from('news_posts')
-      .select('id,title,body,pinned,min_tier,created_by,created_at')
+      .select('id,title,body,pinned,min_tier,created_by,created_at,requires_ack')
       .order('pinned', { ascending: false }).order('created_at', { ascending: false }).limit(50);
     setPosts((data ?? []) as Post[]);
     setLoading(false);
@@ -36,10 +41,33 @@ export default function NewsClient({ userId, role }: { userId: string; role: Rol
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [load]);
 
+  // Kvittenserna hamtas separat: egna for knappen, status for ledningen
+  const loadAcks = useCallback(async () => {
+    const [mine, status] = await Promise.all([
+      supabase.from('news_acks').select('post_id').eq('user_id', userId),
+      supabase.from('news_ack_status').select('post_id,acked,should_ack')
+    ]);
+    setMyAcks(new Set(((mine.data ?? []) as { post_id: string }[]).map((r) => r.post_id)));
+    setAckStatus(Object.fromEntries(
+      ((status.data ?? []) as AckStatus[]).map((r) => [r.post_id, r])
+    ));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supabase, userId]);
+
+  useEffect(() => { loadAcks(); }, [loadAcks, posts]);
+
+  const ack = async (p: Post) => {
+    await supabase.from('news_acks').insert({ post_id: p.id, user_id: userId });
+    loadAcks();
+  };
+
   const publish = async () => {
     if (!fTitle) return;
-    await supabase.from('news_posts').insert({ title: fTitle, body: fBody || null, min_tier: parseInt(fTier) || 1, created_by: userId });
-    setFTitle(''); setFBody(''); setFTier('1'); load();
+    await supabase.from('news_posts').insert({
+      title: fTitle, body: fBody || null, min_tier: parseInt(fTier) || 1,
+      requires_ack: fAck, created_by: userId
+    });
+    setFTitle(''); setFBody(''); setFTier('1'); setFAck(false); load();
   };
   const togglePin = async (p: Post) => { await supabase.from('news_posts').update({ pinned: !p.pinned }).eq('id', p.id); load(); };
   const remove = async (p: Post) => {
@@ -63,6 +91,10 @@ export default function NewsClient({ userId, role }: { userId: string; role: Rol
               {[1, 2, 3, 4, 5].map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
+          <label className="check-row">
+            <input type="checkbox" checked={fAck} onChange={() => setFAck(!fAck)} />
+            <BellRing size={14} style={{ marginRight: 4 }} /> Kräver läsbekräftelse
+          </label>
           <button className="btn btn-primary" onClick={publish}>{tr('newPost')}</button>
         </div>
       )}
@@ -77,7 +109,31 @@ export default function NewsClient({ userId, role }: { userId: string; role: Rol
                 {p.body && <div className="li-meta" style={{ whiteSpace: 'pre-wrap' }}>{p.body}</div>}
                 <div className="li-meta mono">{fmt(p.created_at)} · {names[p.created_by] ?? '—'}</div>
               </div>
+              {p.requires_ack && (
+                <span className={`badge ${myAcks.has(p.id) ? 'b-resolved' : 'b-critical'}`}>
+                  {myAcks.has(p.id) ? 'kvitterad' : 'kräver kvittens'}
+                </span>
+              )}
             </div>
+
+            {p.requires_ack && !myAcks.has(p.id) && (
+              <div className="li-actions">
+                <button className="btn btn-sm btn-primary" onClick={() => ack(p)}>
+                  <CheckCheck size={13} /> Jag har läst
+                </button>
+              </div>
+            )}
+
+            {/* Vem som INTE last ar det ledningen behover veta */}
+            {p.requires_ack && tier >= 4 && ackStatus[p.id] && (
+              <div className="li-meta" style={{
+                color: ackStatus[p.id].acked < ackStatus[p.id].should_ack ? 'var(--danger)' : undefined
+              }}>
+                {ackStatus[p.id].acked} av {ackStatus[p.id].should_ack} har kvitterat
+                {ackStatus[p.id].acked < ackStatus[p.id].should_ack &&
+                  ` · ${ackStatus[p.id].should_ack - ackStatus[p.id].acked} återstår`}
+              </div>
+            )}
             {(tier >= 5 || p.created_by === userId) && (
               <div className="li-actions">
                 <button className="btn btn-sm" onClick={() => togglePin(p)}>{p.pinned ? tr('unpin') : tr('pin')}</button>

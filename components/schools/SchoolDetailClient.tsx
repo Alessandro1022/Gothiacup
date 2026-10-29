@@ -1,12 +1,15 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Users } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useLang } from '@/components/LanguageProvider';
+import TeamRoster from '@/components/schools/TeamRoster';
 
 type School = { id: string; name: string; address: string | null; capacity: number };
-type Team = { id: string; team_name: string; country: string | null; group_size: number; contact_name: string | null; contact_phone: string | null; status: string; classroom_id: string | null };
+type Team = { id: string; team_name: string; country: string | null; group_size: number; contact_name: string | null; contact_phone: string | null; status: string; classroom_id: string | null; age_class: string; club_name: string; arrival_date: string | null; departure_date: string | null };
+// Hur manga deltagare som faktiskt ar registrerade mot lagets anmalda antal
+type Roster = { team_assignment_id: string; registered: number; checked_in: number; age_flagged: number };
 type Room = { id: string; name: string; capacity: number; notes: string | null };
 type Issue = { id: string; title: string; description: string | null; status: string; created_at: string };
 type Round = { id: string; all_ok: boolean; notes: string | null; performed_at: string };
@@ -32,22 +35,27 @@ export default function SchoolDetailClient({ school, userId }: { school: School;
   const [nOk, setNOk] = useState(true); const [nNotes, setNNotes] = useState('');
   const [kLabel, setKLabel] = useState('');
   const [editT, setEditT] = useState<Team | null>(null);
+  const [rosterFor, setRosterFor] = useState<Team | null>(null);
+  const [rosters, setRosters] = useState<Record<string, Roster>>({});
+  const [eClass, setEClass] = useState(''); const [eArr, setEArr] = useState(''); const [eDep, setEDep] = useState('');
   const [eName, setEName] = useState(''); const [eCountry, setECountry] = useState('');
   const [eSize, setESize] = useState(''); const [eContact, setEContact] = useState(''); const [ePhone, setEPhone] = useState('');
 
   const load = useCallback(async () => {
-    const [t, r, i, n, k] = await Promise.all([
-      supabase.from('team_assignments').select('id,team_name,country,group_size,contact_name,contact_phone,status,classroom_id').eq('school_id', school.id).order('created_at', { ascending: false }),
+    const [t, r, i, n, k, rs] = await Promise.all([
+      supabase.from('team_assignments').select('id,team_name,country,group_size,contact_name,contact_phone,status,classroom_id,age_class,club_name,arrival_date,departure_date').eq('school_id', school.id).order('created_at', { ascending: false }),
       supabase.from('classrooms').select('id,name,capacity,notes').eq('school_id', school.id).order('name'),
       supabase.from('room_issues').select('id,title,description,status,created_at').eq('school_id', school.id).order('created_at', { ascending: false }),
       supabase.from('night_rounds').select('id,all_ok,notes,performed_at').eq('school_id', school.id).order('performed_at', { ascending: false }).limit(20),
-      supabase.from('room_keys').select('id,label,status,holder_name').eq('school_id', school.id).order('label')
+      supabase.from('room_keys').select('id,label,status,holder_name').eq('school_id', school.id).order('label'),
+      supabase.from('team_roster_stats').select('team_assignment_id,registered,checked_in,age_flagged').eq('school_id', school.id)
     ]);
     setTeams((t.data ?? []) as Team[]);
     setRooms((r.data ?? []) as Room[]);
     setIssues((i.data ?? []) as Issue[]);
     setRounds((n.data ?? []) as Round[]);
     setKeys((k.data ?? []) as RoomKey[]);
+    setRosters(Object.fromEntries(((rs.data ?? []) as Roster[]).map((x) => [x.team_assignment_id, x])));
   }, [supabase, school.id]);
 
   useEffect(() => {
@@ -123,12 +131,14 @@ export default function SchoolDetailClient({ school, userId }: { school: School;
     setEditT(t);
     setEName(t.team_name); setECountry(t.country ?? '');
     setESize(String(t.group_size)); setEContact(t.contact_name ?? ''); setEPhone(t.contact_phone ?? '');
+    setEClass(t.age_class ?? ''); setEArr(t.arrival_date ?? ''); setEDep(t.departure_date ?? '');
   };
   const saveTeam = async () => {
     if (!editT) return;
     await supabase.from('team_assignments').update({
       team_name: eName, country: eCountry || null, group_size: parseInt(eSize) || 0,
-      contact_name: eContact || null, contact_phone: ePhone || null
+      contact_name: eContact || null, contact_phone: ePhone || null,
+      age_class: eClass.trim(), arrival_date: eArr || null, departure_date: eDep || null
     }).eq('id', editT.id);
     setEditT(null); load();
   };
@@ -209,9 +219,21 @@ export default function SchoolDetailClient({ school, userId }: { school: School;
                 <div className="li-head">
                   <div>
                     <div className="li-title">{t.team_name} {t.country ? `· ${t.country}` : ''}</div>
-                    <div className="li-meta">{t.group_size} pers{t.contact_name ? ` · ${t.contact_name}` : ''}{t.contact_phone ? ` · ${t.contact_phone}` : ''}{roomName(t.classroom_id) ? ` · ${roomName(t.classroom_id)}` : ''}</div>
+                    <div className="li-meta">
+                      {rosters[t.id]?.registered ?? 0}/{t.group_size} registrerade
+                      {t.age_class ? ` · ${t.age_class}` : ''}
+                      {t.contact_name ? ` · ${t.contact_name}` : ''}
+                      {t.contact_phone ? ` · ${t.contact_phone}` : ''}
+                      {roomName(t.classroom_id) ? ` · ${roomName(t.classroom_id)}` : ''}
+                      {t.arrival_date ? ` · ${t.arrival_date}` : ''}
+                    </div>
                   </div>
-                  <span className={`badge b-${t.status}`}>{tmLabel(t.status)}</span>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    {(rosters[t.id]?.age_flagged ?? 0) > 0 && (
+                      <span className="badge b-critical">{rosters[t.id].age_flagged} ålder</span>
+                    )}
+                    <span className={`badge b-${t.status}`}>{tmLabel(t.status)}</span>
+                  </div>
                 </div>
                 <div className="li-actions">
                   {t.status !== 'checked_in' && <button className="btn btn-sm btn-primary" onClick={() => setTeamStatus(t, 'checked_in')}>{tr('checkIn')}</button>}
@@ -221,6 +243,9 @@ export default function SchoolDetailClient({ school, userId }: { school: School;
                     <option value="">{tr('classrooms')}: {tr('none').toLowerCase()}</option>
                     {rooms.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
                   </select>
+                  <button className="btn btn-sm" onClick={() => setRosterFor(t)}>
+                    <Users size={13} /> Deltagare {rosters[t.id]?.registered ?? 0}
+                  </button>
                   <button className="btn btn-sm" onClick={() => openEditTeam(t)}>{tr('edit')}</button>
                   <button className="btn btn-sm btn-danger" onClick={() => removeTeam(t)}>{tr('deleteLbl')}</button>
                 </div>
@@ -231,6 +256,9 @@ export default function SchoolDetailClient({ school, userId }: { school: School;
                     <div><label className="label">{tr('groupSize')}</label><input className="input" type="number" value={eSize} onChange={(e) => setESize(e.target.value)} /></div>
                     <div><label className="label">{tr('contactName')}</label><input className="input" value={eContact} onChange={(e) => setEContact(e.target.value)} /></div>
                     <div><label className="label">{tr('phone')}</label><input className="input" value={ePhone} onChange={(e) => setEPhone(e.target.value)} /></div>
+                    <div><label className="label">Åldersklass</label><input className="input" value={eClass} onChange={(e) => setEClass(e.target.value)} placeholder="P15" /></div>
+                    <div><label className="label">Ankomst</label><input className="input" type="date" value={eArr} onChange={(e) => setEArr(e.target.value)} /></div>
+                    <div><label className="label">Avresa</label><input className="input" type="date" value={eDep} onChange={(e) => setEDep(e.target.value)} /></div>
                     <div style={{ display: 'flex', gap: 6 }}>
                       <button className="btn btn-sm" onClick={() => setEditT(null)}>{tr('cancel')}</button>
                       <button className="btn btn-sm btn-primary" onClick={saveTeam}>{tr('save')}</button>
@@ -357,6 +385,16 @@ export default function SchoolDetailClient({ school, userId }: { school: School;
             {keys.length === 0 && <div className="page-sub">{tr('nothingHere')}</div>}
           </div>
         </>
+      )}
+      {rosterFor && (
+        <TeamRoster
+          teamId={rosterFor.id}
+          teamName={rosterFor.team_name}
+          ageClass={rosterFor.age_class ?? ''}
+          groupSize={rosterFor.group_size}
+          seasonYear={rosterFor.arrival_date ? Number(rosterFor.arrival_date.slice(0, 4)) : null}
+          onClose={() => { setRosterFor(null); load(); }}
+        />
       )}
     </>
   );

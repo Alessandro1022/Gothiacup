@@ -23,6 +23,7 @@ type Ctx = {
     school: string; schools: string; area: string; areas: string;
   };
   has: (f: FeatureKey) => boolean;
+  canWrite: (f: FeatureKey) => boolean;
   isOwner: boolean;
   reload: () => void;
 };
@@ -45,6 +46,7 @@ const fallbackCtx = (): Ctx => ({
     areas: fallback.labels.areas
   },
   has: () => true,
+  canWrite: () => true,
   isOwner: false,
   reload: () => {}
 });
@@ -62,6 +64,9 @@ const isHex = (v?: string | null): v is string => !!v && /^#[0-9a-fA-F]{6}$/.tes
 export default function TenantProvider({ children }: { children: React.ReactNode }) {
   const [row, setRow] = useState<TenantRow | null>(null);
   const [isOwner, setIsOwner] = useState(false);
+  // Vad den inloggades ROLL nar. Tom karta = del 12b inte kord an,
+  // och da ska tier-regeln galla som forut i stallet for att dolja allt.
+  const [levels, setLevels] = useState<Record<string, string> | null>(null);
   const [tick, setTick] = useState(0);
   const reload = useCallback(() => setTick((t) => t + 1), []);
 
@@ -99,6 +104,13 @@ export default function TenantProvider({ children }: { children: React.ReactNode
             .from('profiles').select('platform_owner').eq('id', u.user.id).maybeSingle()
             .then((r) => r, () => ({ data: null }));
           if (!cancelled) setIsOwner(!!p?.platform_owner);
+        }
+
+        const { data: mods } = await supabase.rpc('my_modules')
+          .then((r) => r, () => ({ data: null }));
+        if (!cancelled) {
+          const list = (mods ?? []) as { module: string; level: string }[];
+          setLevels(list.length ? Object.fromEntries(list.map((m) => [m.module, m.level])) : null);
         }
 
         // Färger från turneringens tema. Saknas ett värde återställs
@@ -157,7 +169,11 @@ export default function TenantProvider({ children }: { children: React.ReactNode
       area: row?.labels?.area || base.labels.area,
       areas: row?.labels?.areas || base.labels.areas
     },
-    has: (f) => (row ? hasModule(row.features, f) : true),
+    // Bada maste saga ja: ingar modulen i turneringens paket, och nar
+    // rollen den? Paketet ar vad kunden betalat for, rollen vad personen
+    // jobbar med.
+    has: (f) => (row ? hasModule(row.features, f) : true) && (levels ? !!levels[f] : true),
+    canWrite: (f) => (row ? hasModule(row.features, f) : true) && (levels ? levels[f] === 'write' : true),
     isOwner,
     reload
   };

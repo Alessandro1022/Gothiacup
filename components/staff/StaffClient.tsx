@@ -3,9 +3,19 @@ import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useLang } from '@/components/LanguageProvider';
 import { tenant } from '@/lib/tenant';
-import { tierOf, type Role, ROLE_LABELS } from '@/lib/types';
+import { tierOf, type Role, ROLE_LABELS, ROLE_GROUPS } from '@/lib/types';
 
-const ROLES = Object.keys(ROLE_LABELS) as Role[];
+// 16 roller i en platt lista blir svart att overblicka, sa de grupperas
+// som organisationen faktiskt ser ut.
+const RoleOptions = () => (
+  <>
+    {ROLE_GROUPS.map((g) => (
+      <optgroup key={g.label} label={g.label}>
+        {g.roles.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+      </optgroup>
+    ))}
+  </>
+);
 
 type Profile = { id: string; full_name: string; email: string; role: Role; phone: string | null };
 type Scope = { id: string; user_id: string; area_id: string | null; location_type: 'school' | 'arena' | null; location_id: string | null };
@@ -136,7 +146,7 @@ export default function StaffClient({ viewerRole }: { viewerRole: Role }) {
                 {canEdit ? (
                   <select className="select" style={{ width: 'auto', padding: '6px 9px', fontSize: 12.5 }}
                     value={p.role} onChange={(e) => changeRole(p.id, e.target.value)}>
-                    {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+                    <RoleOptions />
                   </select>
                 ) : (
                   <span className="badge b-low">{ROLE_LABELS[p.role]}</span>
@@ -195,7 +205,7 @@ export default function StaffClient({ viewerRole }: { viewerRole: Role }) {
             <input className="input" type="email" value={invEmail} onChange={(e) => setInvEmail(e.target.value)} placeholder="namn@gothiacup.se" />
             <label className="label">{tr('roleLbl')}</label>
             <select className="select" value={invRole} onChange={(e) => setInvRole(e.target.value as Role)}>
-              {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+              <RoleOptions />
             </select>
             <label className="label">{tr('scope')}</label>
             <select className="select" value={invPick} onChange={(e) => setInvPick(e.target.value)}>

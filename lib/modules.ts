@@ -12,8 +12,21 @@ type TenantFeatures = { features?: Record<string, boolean> | null } | null;
 export async function moduleEnabled(key: FeatureKey): Promise<boolean> {
   try {
     const supabase = await createClient();
-    const { data } = await supabase.rpc('my_tenant_row').maybeSingle();
-    const features = (data as TenantFeatures)?.features;
+
+    // Två oberoende frågor måste båda svara ja: ingår modulen i
+    // turneringens paket, och når den inloggades roll den?
+    // Den första är vad kunden betalat för, den andra vad personen jobbar
+    // med. En matansvarig ska inte se ekonomi även om turneringen har den.
+    const [tenant, role] = await Promise.all([
+      supabase.rpc('my_tenant_row').maybeSingle(),
+      supabase.rpc('can_module', { key, need_write: false })
+        .then((r) => r, () => ({ data: null }))
+    ]);
+
+    // null = funktionen finns inte ännu (del 12b inte körd): låt det passera
+    if (role?.data === false) return false;
+
+    const features = (tenant.data as TenantFeatures)?.features;
 
     // Ingen turnering satt, tabellen saknas, eller tom uppsättning:
     // blockera inte. Medvetet val – ett databasfel ska inte låsa ute en

@@ -28,6 +28,7 @@ export default function Shell({ role, name, children }: Props) {
   const [openInc, setOpenInc] = useState<number | null>(null);
   const [staffPct, setStaffPct] = useState<number | null>(null);
   const [crisis, setCrisis] = useState<{ active: boolean; message: string | null }>({ active: false, message: null });
+  const [chatUnread, setChatUnread] = useState(0);
   const supabase = createClient();
   const tier = tierOf(role);
 
@@ -67,6 +68,38 @@ export default function Shell({ role, name, children }: Props) {
     return () => { supabase.removeChannel(ch); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Olästa i chatten, så att man ser nya meddelanden utan att öppna chatten.
+  // Räknas om vid sidbyte, när ett meddelande kommer och när chatten
+  // markerat en kanal som läst.
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const load = async () => {
+      const { data: s } = await supabase.auth.getSession();
+      const uid = s.session?.user.id;
+      if (!uid) return;
+      const { data, error } = await supabase.from('channel_unread').select('unread').eq('user_id', uid);
+      if (error) return;
+      setChatUnread(((data ?? []) as { unread: number }[]).reduce((n, r) => n + (Number(r.unread) || 0), 0));
+    };
+    const later = () => { if (timer) clearTimeout(timer); timer = setTimeout(load, 700); };
+    load();
+    const ch = supabase
+      .channel('shell-chat')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, later)
+      .subscribe();
+    window.addEventListener('tops:chat-read', load);
+    return () => {
+      if (timer) clearTimeout(timer);
+      window.removeEventListener('tops:chat-read', load);
+      supabase.removeChannel(ch);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+
+  const badge = (href: string) => href === '/chat' && chatUnread > 0
+    ? <span className="nav-badge" aria-label={`${chatUnread} olästa`}>{chatUnread > 99 ? '99+' : chatUnread}</span>
+    : null;
 
   const brandName = tn.name;
 
@@ -199,7 +232,7 @@ export default function Shell({ role, name, children }: Props) {
                 {items.map(({ href, label, Icon }) => (
                   <Link key={href} href={href} onClick={closeDrawer}
                     className={`nav-link ${pathname.startsWith(href) ? 'active' : ''}`}>
-                    <Icon size={17} /> {label}
+                    <Icon size={17} /> {label}{badge(href)}
                   </Link>
                 ))}
               </div>
@@ -229,7 +262,7 @@ export default function Shell({ role, name, children }: Props) {
       <nav className="bottombar" style={{ gridTemplateColumns: `repeat(${bottomItems.length + 1}, 1fr)` }}>
         {bottomItems.map(({ href, label, Icon }) => (
           <Link key={href} href={href} className={pathname.startsWith(href) ? 'active' : ''}>
-            <Icon size={19} /> {label}
+            <Icon size={19} /> {label}{badge(href)}
           </Link>
         ))}
         <button onClick={() => setOpen(true)}><Menu size={19} /> {tr('more')}</button>

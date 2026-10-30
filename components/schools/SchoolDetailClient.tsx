@@ -8,6 +8,7 @@ import TeamRoster from '@/components/schools/TeamRoster';
 import { useTenant } from '@/components/TenantProvider';
 import EmergencyCard from '@/components/EmergencyCard';
 import ChecklistRuns from '@/components/checklists/ChecklistRuns';
+import Attachments from '@/components/attachments/Attachments';
 
 type School = { id: string; name: string; address: string | null; capacity: number };
 type Team = { id: string; team_name: string; country: string | null; group_size: number; contact_name: string | null; contact_phone: string | null; status: string; classroom_id: string | null; age_class: string; club_name: string; arrival_date: string | null; departure_date: string | null };
@@ -338,6 +339,7 @@ export default function SchoolDetailClient({ school, userId }: { school: School;
                   {i.status === 'resolved' && <button className="btn btn-sm" onClick={() => setIssueStatus(i.id, 'open')}>{tr('reopen')}</button>}
                   <button className="btn btn-sm btn-danger" onClick={() => removeIssue(i.id)}>{tr('deleteLbl')}</button>
                 </div>
+                <Attachments parentType="room_issue" parentId={i.id} userId={userId} label="Bifoga foto" />
               </div>
             ))}
             {issues.length === 0 && <div className="page-sub">{tr('nothingHere')}</div>}

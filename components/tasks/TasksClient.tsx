@@ -3,6 +3,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { Plus, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useLang } from '@/components/LanguageProvider';
+import TaskComments from '@/components/tasks/TaskComments';
+import Attachments from '@/components/attachments/Attachments';
 
 type Task = {
   id: string; title: string; description: string | null;
@@ -196,9 +198,22 @@ export default function TasksClient({ userId }: { userId: string }) {
               {people.map((p) => <option key={p.id} value={p.id}>{p.full_name || p.id.slice(0, 6)}</option>)}
             </select>
 
+            {/* Kommentarer och bilagor finns när uppgiften väl är skapad */}
+            {editId && (
+              <>
+                <label className="label">Bilder och filer</label>
+                <Attachments parentType="task" parentId={editId} userId={userId} />
+                <label className="label">Kommentarer</label>
+                <TaskComments taskId={editId} userId={userId}
+                  names={Object.fromEntries(people.map((p) => [p.id, p.full_name]))} />
+              </>
+            )}
+
             <div className="modal-actions">
               <button className="btn" onClick={() => setShowModal(false)}>{tr('cancel')}</button>
-              <button className="btn btn-primary" disabled={!fTitle || saving} onClick={saveTask}>{tr('create')}</button>
+              <button className="btn btn-primary" disabled={!fTitle || saving} onClick={saveTask}>
+                {editId ? tr('save') : tr('create')}
+              </button>
             </div>
           </div>
         </div>

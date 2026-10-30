@@ -868,3 +868,54 @@ button.map-li:active { transform: scale(.985); }
 }
 .meal-toggle.on { background: #DFF3E7; border-color: #BFE3CD; color: #177245; }
 .meal-toggle:disabled { opacity: .7; }
+
+/* ================================================================
+   BILAGOR
+   ================================================================ */
+.att-box { display: grid; gap: 8px; justify-items: start; margin-top: 8px; }
+.att-list { display: grid; gap: 6px; width: 100%; }
+.att-thumbs { display: flex; flex-wrap: wrap; gap: 8px; }
+.att-thumb { position: relative; width: 92px; height: 92px; border-radius: 12px; overflow: hidden; background: var(--bg); border: 1px solid var(--line); }
+.att-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.att-missing { display: grid; place-items: center; height: 100%; font-size: 11px; color: var(--muted); text-align: center; padding: 6px; }
+.att-del {
+  position: absolute; top: 4px; right: 4px; width: 26px; height: 26px; border-radius: 50%;
+  border: none; background: rgba(10, 22, 36, .66); color: #fff; display: grid; place-items: center;
+}
+.att-del.inline { position: static; background: var(--bg); color: var(--muted); flex-shrink: 0; }
+.att-file {
+  display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px;
+  background: var(--bg); font-size: 13.5px; min-width: 0;
+}
+.att-file a, .att-file span:not(.li-meta) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.att-file a { color: var(--primary); font-weight: 600; }
+.att-add { cursor: pointer; }
+.att-add.busy { opacity: .6; pointer-events: none; }
+
+/* ---- Kommentarer ---- */
+.comments { display: grid; gap: 8px; }
+.comment { background: var(--bg); border-radius: 12px; padding: 9px 11px; }
+.comment-head { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.comment-head .att-del { margin-left: auto; width: 24px; height: 24px; }
+.comment-body { font-size: 14px; margin-top: 3px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.comment-input { padding: 0; border-top: none; background: none; }
+
+/* ---- Chatt: olästa, bilagor, ny kanal ---- */
+.unread {
+  display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; margin-left: 6px;
+  border-radius: 99px; background: var(--danger); color: #fff; font-size: 11px; font-weight: 800;
+}
+.chat-bubble .att-list { margin-top: 8px; }
+.chat-bubble .att-thumb { width: 140px; height: 140px; }
+.chat-attach { flex: 0 0 auto; padding: 0 12px; min-width: 46px; cursor: pointer; }
+.chat-attach.busy { opacity: .5; pointer-events: none; }
+.member-pick { max-height: 260px; overflow-y: auto; margin-top: 8px; display: grid; gap: 2px; -webkit-overflow-scrolling: touch; }
+.member-row { display: flex; align-items: center; gap: 10px; padding: 9px 4px; border-bottom: 1px solid var(--line); font-size: 14.5px; }
+.member-row input { width: 20px; height: 20px; accent-color: var(--primary); flex-shrink: 0; }
+.member-row span:first-of-type { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nav-badge {
+  display: inline-grid; place-items: center; min-width: 19px; height: 19px; padding: 0 5px;
+  border-radius: 99px; background: var(--danger); color: #fff; font-size: 10.5px; font-weight: 800;
+  line-height: 1; margin-left: auto;
+}
+.bottombar .nav-badge { position: absolute; top: 4px; left: calc(50% + 6px); margin: 0; }

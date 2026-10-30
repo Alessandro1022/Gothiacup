@@ -8,6 +8,7 @@ import { useLang } from '@/components/LanguageProvider';
 import { tierOf, type Role } from '@/lib/types';
 import { useTenant } from '@/components/TenantProvider';
 import RowHistory from '@/components/history/RowHistory';
+import Attachments from '@/components/attachments/Attachments';
 
 type Inc = {
   id: string; title: string; description: string | null; severity: string; status: string;
@@ -171,6 +172,11 @@ export default function IncidentDetailClient({ incidentId, userId, role }: { inc
           </div>
         </div>
       )}
+
+      <h2 style={{ fontSize: 16, marginBottom: 6 }}>Bilder och filer</h2>
+      <div style={{ marginBottom: 18 }}>
+        <Attachments parentType="incident" parentId={inc.id} userId={userId} isAdmin={tier >= 5} label="Bifoga foto eller fil" />
+      </div>
 
       <h2 style={{ fontSize: 16, marginBottom: 10 }}>{tr('comments')} <span className="mono" style={{ fontSize: 12, color: 'var(--muted)' }}>{comments.length}</span></h2>
       <div className="list" style={{ marginBottom: 12 }}>
